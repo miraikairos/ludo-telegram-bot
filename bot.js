@@ -249,11 +249,13 @@ try {
 const movablePieces =
   room.pieces[color]
     .map((pos, index) => ({ pos, index }))
-    .filter(
-      (p) =>
-        p.pos !== -1 ||
-        dice === 6
-    );
+    .filter((p) => {
+      if (p.pos === -1) {
+        return dice === 6;
+      }
+
+      return p.pos + dice <= 56;
+    });
     await bot.answerCallbackQuery(
       query.id
     );
