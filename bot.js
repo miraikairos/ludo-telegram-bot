@@ -16,7 +16,7 @@ const START_INDEX = {
   blue: 39,
 };
 const TOKEN = process.env.BOT_TOKEN;
-
+console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 const bot = new TelegramBot(TOKEN, {
   polling: true,
 });
