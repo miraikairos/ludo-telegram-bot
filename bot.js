@@ -70,7 +70,19 @@ bot.onText(/\/createludo/, async (msg) => {
 
   room.lobbyMessageId = sent.message_id;
 });
+bot.onText(/\/endludo/, (msg) => {
+  const chatId = msg.chat.id;
 
+  const room = rooms[chatId];
+
+  if (!room) {
+    return bot.sendMessage(chatId, "❌ No active Ludo game.");
+  }
+
+  delete rooms[chatId];
+
+  bot.sendMessage(chatId, "🛑 Ludo game ended successfully.");
+});
 bot.onText(/\/join/, async (msg) => {
   const room = joinLobby(
     msg.chat.id,
