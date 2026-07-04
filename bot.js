@@ -354,6 +354,9 @@ const movablePieces =
   }
 }, 4000);
 
+return;
+}
+
   // =====================
   // SELECT PIECE
   // =====================
