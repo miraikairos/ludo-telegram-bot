@@ -1,5 +1,6 @@
 const { TelegramBot } = require("node-telegram-bot-api");
-
+const express = require("express");
+const app = express();
 const {
   createLobby,
   joinLobby,
@@ -602,5 +603,13 @@ const movablePieces =
     return;
   }
 });
+app.get("/", (req, res) => {
+  res.send("Ludo Bot Running");
+});
 
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 console.log("Ludo Bot Running...");

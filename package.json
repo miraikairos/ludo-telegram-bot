@@ -4,7 +4,7 @@
   "description": "",
   "main": "bot.js",
   "scripts": {
-     "start": "node bot.js",
+    "start": "node bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,6 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "canvas": "^3.2.3",
+    "express": "^5.2.1",
     "node-telegram-bot-api": "^1.1.2"
   }
 }
