@@ -21,7 +21,13 @@ console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 const bot = new TelegramBot(TOKEN, {
   polling: true,
 });
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
 
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err);
+});
 function buildLobbyText(room) {
   const emoji = {
     red: "🔴",
@@ -181,7 +187,12 @@ bot.onText(/\/board/, async (msg) => {
   }
  
  
+ try {
+  console.log("Rendering board...");
+
   const image = await renderBoard(room);
+
+  console.log("Board rendered");
 
   await bot.sendPhoto(
     msg.chat.id,
@@ -190,6 +201,11 @@ bot.onText(/\/board/, async (msg) => {
       caption: "🎲 Current Board",
     }
   );
+
+  console.log("Board sent");
+} catch (err) {
+  console.error("BOARD ERROR:", err);
+}
 });
 bot.on("callback_query", async (query) => {
   const room = getRoom(query.message.chat.id);
@@ -213,12 +229,16 @@ bot.on("callback_query", async (query) => {
       );
     }
 
-    const diceMsg = await bot.sendDice(
-      query.message.chat.id,
-      {
-        emoji: "🎲",
-      }
-    );
+ let diceMsg;
+
+try {
+  diceMsg = await bot.sendDice(
+    query.message.chat.id
+  );
+} catch (err) {
+  console.error("SEND DICE FAILED:", err);
+  return;
+}
 
     const dice = diceMsg.dice.value;
 
@@ -257,7 +277,7 @@ const movablePieces =
             dice === 6
         );
 
-    console.log("Movable:", movablePieces);
+   
 
     // rest of code
 
@@ -412,6 +432,28 @@ const movablePieces =
   // CONFIRM MOVE
   // =====================
  if (query.data === "CONFIRM_MOVE") {
+  try {
+  console.log("Rendering updated board");
+
+  const image = await renderBoard(room);
+
+  console.log("Board rendered");
+
+  await bot.sendPhoto(
+    query.message.chat.id,
+    image,
+    {
+      caption: "🎲 Updated Board",
+    }
+  );
+
+  console.log("Updated board sent");
+} catch (err) {
+  console.error(
+    "UPDATED BOARD ERROR:",
+    err
+  );
+}
   const currentPlayer =
     room.players[room.currentTurn];
 
