@@ -257,12 +257,10 @@ const movablePieces =
     await bot.answerCallbackQuery(
       query.id
     );
+ console.log("After answerCallbackQuery");
  setTimeout(async () => {
-  console.log("Timeout reached");
-  console.log("Current Player:", currentPlayer);
-  console.log("Dice:", dice);
-
   try {
+    console.log("Processing roll");
 
     const color = currentPlayer.color;
 
@@ -278,30 +276,10 @@ const movablePieces =
             dice === 6
         );
 
-   
-
-    // rest of code
-
-  } catch (err) {
-    console.error(err);
-  }
-
-}, 4000);
- setTimeout(async () => {
-
-  const color = currentPlayer.color;
-
-  const movablePieces =
-    room.pieces[color]
-      .map((pos, index) => ({
-        pos,
-        index,
-      }))
-      .filter(
-        (p) =>
-          p.pos !== -1 ||
-          dice === 6
-      );
+    console.log(
+      "Movable:",
+      movablePieces.length
+    );
 
  if (movablePieces.length === 0) {
   await bot.sendMessage(
@@ -366,10 +344,15 @@ const movablePieces =
       },
     }
   );
+  console.log("Before move selection message");
 
-}, 4000);
-    return;
+  } catch (err) {
+    console.error(
+      "ROLL TIMEOUT ERROR:",
+      err
+    );
   }
+}, 4000);
 
   // =====================
   // SELECT PIECE
@@ -433,28 +416,7 @@ const movablePieces =
   // CONFIRM MOVE
   // =====================
  if (query.data === "CONFIRM_MOVE") {
-  try {
-  console.log("Rendering updated board");
-
-  const image = await renderBoard(room);
-
-  console.log("Board rendered");
-
-  await bot.sendPhoto(
-    query.message.chat.id,
-    image,
-    {
-      caption: "🎲 Updated Board",
-    }
-  );
-
-  console.log("Updated board sent");
-} catch (err) {
-  console.error(
-    "UPDATED BOARD ERROR:",
-    err
-  );
-}
+ 
   const currentPlayer =
     room.players[room.currentTurn];
 
