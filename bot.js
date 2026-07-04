@@ -1,5 +1,5 @@
 const { TelegramBot } = require("node-telegram-bot-api");
-await bot.deleteWebhook();
+
 const {
   createLobby,
   joinLobby,
