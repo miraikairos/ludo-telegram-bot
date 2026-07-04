@@ -253,9 +253,12 @@ const movablePieces =
       if (p.pos === -1) {
         return dice === 6;
       }
-
+     if(p.pos === 56){
+      return false;
+     }
       return p.pos + dice <= 56;
     });
+
     await bot.answerCallbackQuery(
       query.id
     );
@@ -282,7 +285,47 @@ const movablePieces =
       "Movable:",
       movablePieces.length
     );
+console.log(
+  "Dice:",
+  dice,
+  "Movable:",
+  movablePieces
+);
+if (
+  room.pieces[color].some(
+    (pos) =>
+      pos > 50 &&
+      pos < 56 &&
+      pos + dice > 56
+  ) &&
+  movablePieces.length === 0
+) {
+  room.currentTurn =
+    (room.currentTurn + 1) %
+    room.players.length;
 
+  const nextPlayer =
+    room.players[room.currentTurn];
+
+  await bot.sendMessage(
+    query.message.chat.id,
+    `➡️ Turn: ${nextPlayer.name}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "🎲 Roll Dice",
+              callback_data: "ROLL",
+            },
+          ],
+        ],
+      },
+    }
+  );
+
+  return;
+}
  if (movablePieces.length === 0) {
   await bot.sendMessage(
     query.message.chat.id,
