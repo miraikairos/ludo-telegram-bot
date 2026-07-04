@@ -2,6 +2,7 @@ const { TelegramBot } = require("node-telegram-bot-api");
 const express = require("express");
 const app = express();
 const {
+  rooms,
   createLobby,
   joinLobby,
   getRoom,
