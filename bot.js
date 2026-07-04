@@ -360,71 +360,30 @@ return;
   // =====================
   // SELECT PIECE
   // =====================
-  if (query.data.startsWith("MOVE_")) {
-    const currentPlayer =
-      room.players[room.currentTurn];
-
-    if (query.from.id !== currentPlayer.id) {
-      return bot.answerCallbackQuery(
-        query.id,
-        {
-          text: "Not your turn!",
-          show_alert: true,
-        }
-      );
-    }
-
-    const pieceIndex = parseInt(
-      query.data.split("_")[1]
-    );
-
-    room.pendingMove = {
-      playerId: currentPlayer.id,
-      pieceIndex,
-    };
-
-    await bot.answerCallbackQuery(
-      query.id
-    );
-
-    await bot.sendMessage(
-      query.message.chat.id,
-      `Move Piece ${pieceIndex + 1}?`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "✅ Confirm",
-                callback_data:
-                  "CONFIRM_MOVE",
-              },
-            ],
-            [
-              {
-                text: "❌ Cancel",
-                callback_data:
-                  "CANCEL_MOVE",
-              },
-            ],
-          ],
-        },
-      }
-    );
-
-    return;
-  }
-
-  // =====================
-  // CONFIRM MOVE
-  // =====================
- if (query.data === "CONFIRM_MOVE") {
  
+
+ 
+ // =====================
+// MOVE PIECE
+// =====================
+if (query.data.startsWith("MOVE_")) {
+
   const currentPlayer =
     room.players[room.currentTurn];
 
-  const piece =
-    room.pendingMove.pieceIndex;
+  if (query.from.id !== currentPlayer.id) {
+    return bot.answerCallbackQuery(
+      query.id,
+      {
+        text: "Not your turn!",
+        show_alert: true,
+      }
+    );
+  }
+
+  const piece = parseInt(
+    query.data.split("_")[1]
+  );
 
   const color =
     currentPlayer.color;
@@ -533,7 +492,7 @@ return;
     }
   }
 
-  room.pendingMove = null;
+ 
 
   const image =
     await renderBoard(room);
@@ -545,18 +504,11 @@ return;
       caption: "🎲 Updated Board",
     }
   );
+await bot.answerCallbackQuery(
+  query.id
+);
 
-  await bot.answerCallbackQuery(
-    query.id,
-    {
-      text: "Move confirmed",
-    }
-  );
-
-  await bot.sendMessage(
-    query.message.chat.id,
-    `✅ Piece ${piece + 1} moved`
-  );
+  
 
   if (
     !captured &&
@@ -589,28 +541,11 @@ return;
 
   return;
 }
+});  
   // =====================
   // CANCEL MOVE
   // =====================
-  if (query.data === "CANCEL_MOVE") {
-
-    room.pendingMove = null;
-
-    await bot.answerCallbackQuery(
-      query.id,
-      {
-        text: "Move cancelled",
-      }
-    );
-
-    await bot.sendMessage(
-      query.message.chat.id,
-      "Choose another piece."
-    );
-
-    return;
-  }
-});
+  
 app.get("/", (req, res) => {
   res.send("Ludo Bot Running");
 });
