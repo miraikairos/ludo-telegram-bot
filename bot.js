@@ -13,9 +13,9 @@ const PATH_LENGTH = 52;
 
 const START_INDEX = {
   red: 0,
-  green: 13,
-  yellow: 26,
-  blue: 39,
+  green: 14,
+  yellow: 27,
+  blue: 40,
 };
 const TOKEN = process.env.BOT_TOKEN;
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
