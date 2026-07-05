@@ -790,7 +790,7 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
     try {
@@ -807,7 +807,6 @@ app.listen(PORT, () => {
   }
 });
 
-  console.log("Webhook set");
 console.log("Ludo Bot Running...");
 setInterval(() => {
   console.log(
