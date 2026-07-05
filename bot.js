@@ -9,7 +9,7 @@ const {
   deleteRoom,
 } = require("./gameManager");
 const renderBoard = require("./boardRenderer");
-const PATH_LENGTH = 51;
+const PATH_LENGTH = 52;
 
 const START_INDEX = {
   red: 0,

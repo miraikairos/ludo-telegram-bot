@@ -109,6 +109,7 @@ const PATH = [
   { x: 42, y: 708 },
 
   { x: 42, y: 625 },
+  { x: 42, y: 542 },
 ];
 console.log("PATH LENGTH =", PATH.length);
  const START_INDEX = {
