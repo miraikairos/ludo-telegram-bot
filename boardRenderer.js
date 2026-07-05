@@ -156,17 +156,7 @@ const FINISH = {
   x: 625,
   y: 625,
 };
-PATH.forEach((p, i) => {
-  ctx.fillStyle = "black";
-  ctx.font = "18px Arial";
-  ctx.textAlign = "center";
 
-  ctx.fillText(
-    i,
-    p.x,
-    p.y - 35
-  );
-});
   room.players.forEach((player) => {
  console.log(player.color, room.pieces[player.color]);
   room.pieces[player.color].forEach(
