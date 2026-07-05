@@ -172,10 +172,54 @@ bot.onText(/\/test55/, async (msg) => {
   const room = getRoom(msg.chat.id);
 
   room.pieces.red[0] = 50;
-
+  room.pieces.blue[0] = 46;
   const image = await renderBoard(room);
 
   await bot.sendPhoto(msg.chat.id, image);
+});
+bot.onText(/\/skip/, async (msg) => {
+  const room = getRoom(msg.chat.id);
+
+  if (!room) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "No active game."
+    );
+  }
+
+  const currentPlayer =
+    room.players[room.currentTurn];
+
+  if (msg.from.id !== currentPlayer.id) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "❌ Not your turn."
+    );
+  }
+
+  room.currentTurn =
+    (room.currentTurn + 1) %
+    room.players.length;
+
+  const nextPlayer =
+    room.players[room.currentTurn];
+
+  await bot.sendMessage(
+    msg.chat.id,
+    `⏭️ ${currentPlayer.name} skipped the turn.\n\n➡️ Turn: ${nextPlayer.name}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "🎲 Roll Dice",
+              callback_data: "ROLL",
+            },
+          ],
+        ],
+      },
+    }
+  );
 });
 bot.onText(/\/board/, async (msg) => {
   const room = getRoom(msg.chat.id);
@@ -587,6 +631,15 @@ await bot.answerCallbackQuery(
   return;
 }
 });  
+setInterval(() => {
+  const mem = process.memoryUsage();
+
+  console.log(
+    "RAM:",
+    Math.round(mem.heapUsed / 1024 / 1024),
+    "MB"
+  );
+}, 30000);
   // =====================
   // CANCEL MOVE
   // =====================
