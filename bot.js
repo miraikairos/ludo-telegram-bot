@@ -237,7 +237,20 @@ bot.onText(/\/skip/, async (msg) => {
   room.currentTurn =
     (room.currentTurn + 1) %
     room.players.length;
+  console.log(
+  "Current Turn:",
+  room.currentTurn
+);
 
+console.log(
+  "Players Length:",
+  room.players.length
+);
+
+console.log(
+  "Next Player:",
+  room.players[room.currentTurn]
+);
   const nextPlayer =
     room.players[room.currentTurn];
 
@@ -532,6 +545,7 @@ return;
 // MOVE PIECE
 // =====================
 if (query.data.startsWith("MOVE_")) {
+try {
 
   const currentPlayer =
     room.players[room.currentTurn];
@@ -607,33 +621,38 @@ if (query.data.startsWith("MOVE_")) {
       query.message.chat.id,
       `🏆 ${currentPlayer.name} wins!`
     );
+      deleteRoom(query.message.chat.id);
     return;
   }
  let captured = false;
   const movedPos =
     room.pieces[color][piece];
- if (movedPos >= 51) {
-  captured = false;
-}
+  
+  // capture logic
+
+ // Pieces in home lane cannot capture
+if (movedPos < 51) {
+
   const movedBoardIndex =
     (START_INDEX[color] + movedPos) %
     PATH_LENGTH;
 
-  
-
   for (const player of room.players) {
+
     if (player.color === color)
       continue;
 
     for (let i = 0; i < 4; i++) {
+
       const oppPos =
         room.pieces[player.color][i];
 
-     if (
-  oppPos === -1 ||
-  oppPos >= 51
-)
-  continue;
+      // Ignore home and home-lane pieces
+      if (
+        oppPos === -1 ||
+        oppPos >= 51
+      ) continue;
+
       const oppBoardIndex =
         (
           START_INDEX[player.color] +
@@ -644,6 +663,7 @@ if (query.data.startsWith("MOVE_")) {
         oppBoardIndex ===
         movedBoardIndex
       ) {
+
         room.pieces[player.color][i] =
           -1;
 
@@ -656,6 +676,8 @@ if (query.data.startsWith("MOVE_")) {
       }
     }
   }
+}
+
 
  
 
@@ -704,7 +726,20 @@ await bot.answerCallbackQuery(
     }
   );
 
-  return;
+   return;
+
+  } catch (err) {
+
+    console.error(
+      "MOVE HANDLER ERROR:",
+      err
+    );
+
+    await bot.sendMessage(
+      query.message.chat.id,
+      `❌ MOVE ERROR: ${err.message}`
+    ).catch(() => {});
+  }
 }
 });  
 setInterval(() => {
