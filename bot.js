@@ -142,9 +142,11 @@ bot.onText(/\/startgame/, async (msg) => {
 const playerList = room.players
   .map((p) => `${emoji[p.color]} ${p.name}`)
   .join("\n");
+  console.log("Before render");
   const image = await renderBoard(room);
-
+ console.log("After render");
   const sent = await bot.sendPhoto(
+  console.log("Board sent"),
   msg.chat.id,
   image,
   {
@@ -254,6 +256,19 @@ bot.onText(/\/board/, async (msg) => {
 });
 bot.on("callback_query", async (query) => {
   const room = getRoom(query.message.chat.id);
+if (
+  query.data === "ROLL" &&
+  room &&
+  room.processing
+) {
+  return bot.answerCallbackQuery(
+    query.id,
+    {
+      text: "⏳ Dice already rolling..."
+    }
+  );
+}
+  
    console.log(
     "CALLBACK RECEIVED:",
     query.data
@@ -311,6 +326,13 @@ const movablePieces =
       query.id
     );
  console.log("After answerCallbackQuery");
+ if (room.processing) {
+  return bot.answerCallbackQuery(query.id, {
+    text: "⏳ Please wait..."
+  });
+}
+
+room.processing = true;
  setTimeout(async () => {
   try {
     console.log("Processing roll");
@@ -351,7 +373,11 @@ if (
   room.currentTurn =
     (room.currentTurn + 1) %
     room.players.length;
-
+  
+console.log(
+  "Next turn:",
+  room.players[room.currentTurn].name
+);
   const nextPlayer =
     room.players[room.currentTurn];
 
@@ -407,6 +433,10 @@ if (
   return;
 }
  console.log("Before move selection message");
+ await bot.deleteMessage(
+  query.message.chat.id,
+  query.message.message_id
+).catch(() => {});
   await bot.sendMessage(
     query.message.chat.id,
     `🎲 ${currentPlayer.name} rolled ${dice}`,
@@ -444,8 +474,11 @@ console.log("After move selection message");
       "ROLL TIMEOUT ERROR:",
       err
     );
+  } finally {
+    room.processing = false;
   }
 }, 4000);
+
 
 return;
 }
