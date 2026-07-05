@@ -145,8 +145,7 @@ const playerList = room.players
   console.log("Before render");
   const image = await renderBoard(room);
  console.log("After render");
-  const sent = await bot.sendPhoto(
-  console.log("Board sent"),
+ const sent = await bot.sendPhoto(
   msg.chat.id,
   image,
   {
@@ -156,17 +155,17 @@ const playerList = room.players
       `Current Turn: 🔴 ${room.players[0].name}`,
 
     reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "🎲 Roll Dice",
-            callback_data: "ROLL",
-          },
-        ],
-      ],
+      inline_keyboard: [[
+        {
+          text: "🎲 Roll Dice",
+          callback_data: "ROLL",
+        },
+      ]],
     },
   }
 );
+
+console.log("Board sent");
 
   room.boardMessageId = sent.message_id;
 });
