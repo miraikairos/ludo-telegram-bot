@@ -29,6 +29,13 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err);
 });
+bot.on("polling_error", (err) => {
+  console.error("POLLING ERROR:", err);
+});
+
+bot.on("error", (err) => {
+  console.error("BOT ERROR:", err);
+});
 function buildLobbyText(room) {
   const emoji = {
     red: "🔴",
@@ -343,9 +350,25 @@ if (
  let diceMsg;
 
 try {
-  diceMsg = await bot.sendDice(
-    query.message.chat.id
-  );
+  console.log("Before sendDice");
+
+const dicePromise = bot.sendDice(
+  query.message.chat.id
+);
+
+const timeoutPromise = new Promise((_, reject) =>
+  setTimeout(
+    () => reject(new Error("sendDice timeout")),
+    10000
+  )
+);
+
+diceMsg = await Promise.race([
+  dicePromise,
+  timeoutPromise
+]);
+
+console.log("After sendDice");
 } catch (err) {
   console.error("SEND DICE FAILED:", err);
   return;
@@ -765,3 +788,9 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 console.log("Ludo Bot Running...");
+setInterval(() => {
+  console.log(
+    "HEARTBEAT",
+    new Date().toISOString()
+  );
+}, 60000);
