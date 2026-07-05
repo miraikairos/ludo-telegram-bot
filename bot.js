@@ -624,7 +624,16 @@ try {
         }
       );
     }
-
+   console.log(
+  "MOVE",
+  color,
+  "current:",
+  currentPos,
+  "dice:",
+  room.lastDice,
+  "new:",
+  newPos
+);
     room.pieces[color][piece] =
       newPos;
   }
