@@ -113,9 +113,9 @@ const PATH = [
 console.log("PATH LENGTH =", PATH.length);
  const START_INDEX = {
   red: 0,
-  green: 14,
-  yellow: 27,
-  blue: 40,
+  green: 13,
+  yellow: 26,
+  blue: 39,
 };
 const HOME_LANE = {
     
