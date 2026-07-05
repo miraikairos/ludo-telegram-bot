@@ -254,13 +254,17 @@ bot.onText(/\/board/, async (msg) => {
 });
 bot.on("callback_query", async (query) => {
   const room = getRoom(query.message.chat.id);
-
+   console.log(
+    "CALLBACK RECEIVED:",
+    query.data
+  );
   if (!room) return;
 
   // =====================
   // ROLL DICE
   // =====================
   if (query.data === "ROLL") {
+    console.log("ROLL START");
     const currentPlayer =
       room.players[room.currentTurn];
 
@@ -402,7 +406,7 @@ if (
 
   return;
 }
-
+ console.log("Before move selection message");
   await bot.sendMessage(
     query.message.chat.id,
     `🎲 ${currentPlayer.name} rolled ${dice}`,
@@ -433,8 +437,8 @@ if (
       },
     }
   );
-  console.log("Before move selection message");
-
+ 
+console.log("After move selection message");
   } catch (err) {
     console.error(
       "ROLL TIMEOUT ERROR:",
