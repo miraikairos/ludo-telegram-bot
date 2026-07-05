@@ -6,8 +6,8 @@ const {
   createLobby,
   joinLobby,
   getRoom,
+  deleteRoom,
 } = require("./gameManager");
-
 const renderBoard = require("./boardRenderer");
 const PATH_LENGTH = 52;
 
@@ -81,15 +81,21 @@ bot.onText(/\/createludo/, async (msg) => {
 bot.onText(/\/endludo/, (msg) => {
   const chatId = msg.chat.id;
 
-  const room = rooms[chatId];
+  const room = getRoom(chatId);
 
   if (!room) {
-    return bot.sendMessage(chatId, "❌ No active Ludo game.");
+    return bot.sendMessage(
+      chatId,
+      "❌ No active Ludo game."
+    );
   }
 
-  delete rooms[chatId];
+  deleteRoom(chatId);
 
-  bot.sendMessage(chatId, "🛑 Ludo game ended successfully.");
+  return bot.sendMessage(
+    chatId,
+    "🛑 Ludo game ended successfully."
+  );
 });
 bot.onText(/\/join/, async (msg) => {
   const room = joinLobby(
@@ -169,6 +175,36 @@ console.log("Board sent");
 
   room.boardMessageId = sent.message_id;
 });
+bot.onText(/\/resume/, async (msg) => {
+  const room = getRoom(msg.chat.id);
+
+  if (!room) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "No active game."
+    );
+  }
+
+  room.processing = false;
+
+  const currentPlayer =
+    room.players[room.currentTurn];
+
+  await bot.sendMessage(
+    msg.chat.id,
+    `🔄 Game resumed\n\n➡️ Turn: ${currentPlayer.name}`,
+    {
+      reply_markup: {
+        inline_keyboard: [[
+          {
+            text: "🎲 Roll Dice",
+            callback_data: "ROLL"
+          }
+        ]]
+      }
+    }
+  );
+});
 bot.onText(/\/test55/, async (msg) => {
   const room = getRoom(msg.chat.id);
 
@@ -224,7 +260,6 @@ bot.onText(/\/skip/, async (msg) => {
 });
 bot.onText(/\/board/, async (msg) => {
   const room = getRoom(msg.chat.id);
-
   if (!room) {
     return bot.sendMessage(
       msg.chat.id,
@@ -332,6 +367,11 @@ const movablePieces =
 }
 
 room.processing = true;
+// Emergency unlock after 15 sec
+setTimeout(() => {
+  room.processing = false;
+  console.log("Processing auto-reset");
+}, 15000);
  setTimeout(async () => {
   try {
     console.log("Processing roll");
