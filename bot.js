@@ -19,9 +19,17 @@ const START_INDEX = {
 };
 const TOKEN = process.env.BOT_TOKEN;
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
-const bot = new TelegramBot(TOKEN, {
-  polling: true,
+
+const bot = new TelegramBot(TOKEN);
+
+app.use(express.json());
+
+app.post(`/bot${TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
+
+
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
 });
@@ -29,9 +37,7 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err);
 });
-bot.on("polling_error", (err) => {
-  console.error("POLLING ERROR:", err);
-});
+
 
 bot.on("error", (err) => {
   console.error("BOT ERROR:", err);
@@ -786,7 +792,22 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+    try {
+    await bot.setWebHook(
+      `https://ludo-telegram-bot-1.onrender.com/bot8784131458:AAH1anMO-VIOgjeWcEP55TyqPSgrfQbifQU`
+    );
+
+    console.log("Webhook set");
+  } catch (err) {
+    console.error(
+      "WEBHOOK ERROR:",
+      err
+    );
+  }
 });
+
+  console.log("Webhook set");
 console.log("Ludo Bot Running...");
 setInterval(() => {
   console.log(
