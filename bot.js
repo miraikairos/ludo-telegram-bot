@@ -17,6 +17,17 @@ const START_INDEX = {
   yellow: 26,
   blue: 39,
 };
+
+// Safe squares: each color's own start square, plus the star square
+// 8 cells ahead of every start square (matches the stars drawn on the board).
+// Pieces sitting on any of these cannot be captured.
+const SAFE_INDICES = new Set([
+  ...Object.values(START_INDEX),
+  ...Object.values(START_INDEX).map(
+    (idx) => (idx + 8) % PATH_LENGTH
+  ),
+]);
+
 const TOKEN = process.env.BOT_TOKEN;
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 
@@ -675,6 +686,11 @@ if (movedPos < 51) {
     (START_INDEX[color] + movedPos) %
     PATH_LENGTH;
 
+  // Safe square (start square or star square) - no captures happen here
+  if (SAFE_INDICES.has(movedBoardIndex)) {
+    // skip capture check entirely
+  } else {
+
   for (const player of room.players) {
 
     if (player.color === color)
@@ -713,6 +729,7 @@ if (movedPos < 51) {
         );
       }
     }
+  }
   }
 }
 
