@@ -33,6 +33,38 @@ console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 
 const bot = new TelegramBot(TOKEN);
 
+// Wraps bot.sendPhoto so that if the bot lacks permission to post photos
+// in a group (Telegram error: "not enough rights to send photos to the
+// chat"), we tell the group what's wrong instead of failing silently.
+async function safeSendPhoto(chatId, photo, options) {
+  try {
+    return await bot.sendPhoto(chatId, photo, options);
+  } catch (err) {
+    const desc =
+      err?.response?.body?.description ||
+      err?.message ||
+      "";
+
+    if (
+      desc.includes(
+        "not enough rights to send photos"
+      )
+    ) {
+      await bot.sendMessage(
+        chatId,
+        "⚠️ I don't have permission to send photos in this chat.\n\n" +
+          "An admin needs to open this group's settings → Administrators → " +
+          "give me the \"Send Photos\" (Send Media) permission, then run the last command again."
+      );
+      return null;
+    }
+
+    // Unknown error - log it and re-throw so nothing is silently swallowed
+    console.error("sendPhoto failed:", err);
+    throw err;
+  }
+}
+
 app.use(express.json());
 
 app.post(`/bot${TOKEN}`, (req, res) => {
@@ -175,7 +207,7 @@ const playerList = room.players
   console.log("Before render");
   const image = await renderBoard(room);
  console.log("After render");
- const sent = await bot.sendPhoto(
+ const sent = await safeSendPhoto(
   msg.chat.id,
   image,
   {
@@ -197,7 +229,7 @@ const playerList = room.players
 
 console.log("Board sent");
 
-  room.boardMessageId = sent.message_id;
+  room.boardMessageId = sent?.message_id;
 });
 bot.onText(/\/resume/, async (msg) => {
   const room = getRoom(msg.chat.id);
@@ -236,7 +268,7 @@ bot.onText(/\/test55/, async (msg) => {
   room.pieces.blue[0] = 46;
   const image = await renderBoard(room);
 
-  await bot.sendPhoto(msg.chat.id, image);
+  await safeSendPhoto(msg.chat.id, image);
 });
 bot.onText(/\/skip/, async (msg) => {
   const room = getRoom(msg.chat.id);
@@ -312,7 +344,7 @@ bot.onText(/\/board/, async (msg) => {
 
   console.log("Board rendered");
 
-  await bot.sendPhoto(
+  await safeSendPhoto(
     msg.chat.id,
     image,
     {
@@ -739,7 +771,7 @@ if (movedPos < 51) {
   const image =
     await renderBoard(room);
 
-  await bot.sendPhoto(
+  await safeSendPhoto(
     query.message.chat.id,
     image,
     {
