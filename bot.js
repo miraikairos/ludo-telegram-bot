@@ -99,12 +99,70 @@ bot.onText(/\/users/, (msg) => {
   );
 });
 
+// Retries a Telegram API call on transient network failures
+// (e.g. "EFATAL: fetch failed", timeouts, connection resets).
+// Permission/validation errors from Telegram itself are NOT retried,
+// since retrying those just wastes time before failing anyway.
+async function withRetry(
+  fn,
+  { retries = 3, delayMs = 700, shouldRetry } = {}
+) {
+  let lastErr;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+
+      const canRetry = shouldRetry
+        ? shouldRetry(err)
+        : true;
+
+      if (!canRetry || attempt === retries) {
+        throw err;
+      }
+
+      console.error(
+        `Attempt ${attempt}/${retries} failed, retrying:`,
+        err.message
+      );
+
+      await new Promise((r) =>
+        setTimeout(r, delayMs * attempt)
+      );
+    }
+  }
+
+  throw lastErr;
+}
+
+// Wraps bot.sendMessage with retry-on-transient-failure.
+async function safeSendMessage(chatId, text, options) {
+  return withRetry(() =>
+    bot.sendMessage(chatId, text, options)
+  );
+}
+
 // Wraps bot.sendPhoto so that if the bot lacks permission to post photos
 // in a group (Telegram error: "not enough rights to send photos to the
 // chat"), we tell the group what's wrong instead of failing silently.
 async function safeSendPhoto(chatId, photo, options) {
   try {
-    return await bot.sendPhoto(chatId, photo, options);
+    return await withRetry(
+      () => bot.sendPhoto(chatId, photo, options),
+      {
+        shouldRetry: (err) => {
+          const desc =
+            err?.response?.body?.description ||
+            err?.message ||
+            "";
+          return !desc.includes(
+            "not enough rights to send photos"
+          );
+        },
+      }
+    );
   } catch (err) {
     const desc =
       err?.response?.body?.description ||
@@ -429,19 +487,7 @@ bot.on("callback_query", async (query) => {
   trackUser(query.from);
 
   const room = getRoom(query.message.chat.id);
-if (
-  query.data === "ROLL" &&
-  room &&
-  room.processing
-) {
-  return bot.answerCallbackQuery(
-    query.id,
-    {
-      text: "⏳ Dice already rolling..."
-    }
-  );
-}
-  
+
    console.log(
     "CALLBACK RECEIVED:",
     query.data
@@ -465,6 +511,22 @@ if (
         }
       );
     }
+
+    // Acquire the lock RIGHT HERE, synchronously, before any
+    // await. This is what actually stops a fast double-click:
+    // if two ROLL clicks arrive close together, whichever one's
+    // handler runs first sets this flag before yielding control,
+    // so the second one sees it immediately and bails out instead
+    // of also sending a dice roll.
+    if (room.processing) {
+      return bot.answerCallbackQuery(
+        query.id,
+        {
+          text: "⏳ Dice already rolling...",
+        }
+      );
+    }
+    room.processing = true;
 
  let diceMsg;
 
@@ -490,6 +552,11 @@ diceMsg = await Promise.race([
 console.log("After sendDice");
 } catch (err) {
   console.error("SEND DICE FAILED:", err);
+  room.processing = false;
+  await bot.sendMessage(
+    query.message.chat.id,
+    "⚠️ That roll didn't go through (network hiccup). Please tap 🎲 Roll Dice again."
+  ).catch(() => {});
   return;
 }
 
@@ -515,13 +582,7 @@ const movablePieces =
       query.id
     );
  console.log("After answerCallbackQuery");
- if (room.processing) {
-  return bot.answerCallbackQuery(query.id, {
-    text: "⏳ Please wait..."
-  });
-}
 
-room.processing = true;
 // Emergency unlock after 15 sec
 setTimeout(() => {
   room.processing = false;
@@ -669,6 +730,10 @@ console.log("After move selection message");
       "ROLL TIMEOUT ERROR:",
       err
     );
+    await bot.sendMessage(
+      query.message.chat.id,
+      "⚠️ Something went wrong processing that roll. Please tap 🎲 Roll Dice again."
+    ).catch(() => {});
   } finally {
     room.processing = false;
   }
@@ -754,7 +819,7 @@ try {
   if (
   room.pieces[color][piece] === 56
   ) {
-    await bot.sendMessage(
+    await safeSendMessage(
       query.message.chat.id,
       `🎉 Piece ${piece + 1} finished!`
     );
@@ -768,7 +833,7 @@ try {
       .length;
 
   if (finishedCount === 4) {
-    await bot.sendMessage(
+    await safeSendMessage(
       query.message.chat.id,
       `🏆 ${currentPlayer.name} wins!`
     );
@@ -825,7 +890,7 @@ if (movedPos < 51) {
 
         captured = true;
 
-        await bot.sendMessage(
+        await safeSendMessage(
           query.message.chat.id,
           `✂️ ${color.toUpperCase()} captured ${player.color.toUpperCase()}'s P${i + 1}!`
         );
@@ -866,7 +931,7 @@ await bot.answerCallbackQuery(
   const nextPlayer =
     room.players[room.currentTurn];
 
-  await bot.sendMessage(
+  await safeSendMessage(
     query.message.chat.id,
     `➡️ Turn: ${mention(nextPlayer)}`,
     {
@@ -894,7 +959,7 @@ await bot.answerCallbackQuery(
 
     await bot.sendMessage(
       query.message.chat.id,
-      `❌ MOVE ERROR: ${err.message}`
+      `❌ MOVE ERROR: ${err.message}\n\n⚠️ Please try tapping your piece again.`
     ).catch(() => {});
   }
 }
