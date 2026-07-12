@@ -11,6 +11,7 @@ const {
   deleteRoom,
 } = require("./gameManager");
 const renderBoard = require("./boardRenderer");
+const { START_POS, movePiece } = require("./ludoLogic");
 const PATH_LENGTH = 52;
 
 // ======================================
@@ -64,12 +65,7 @@ const OWNER_ID = process.env.OWNER_ID
   ? Number(process.env.OWNER_ID)
   : null;
 
-const START_INDEX = {
-  red: 0,
-  green: 13,
-  yellow: 26,
-  blue: 39,
-};
+const START_INDEX = START_POS;
 
 // Safe squares: each color's own start square, plus the star square
 // 8 cells ahead of every start square (matches the stars drawn on the board).
@@ -507,7 +503,7 @@ const movablePieces =
     .map((pos, index) => ({ pos, index }))
     .filter((p) => {
       if (p.pos === -1) {
-        return dice === 6;
+        return dice === 6 || dice === 1;
       }
      if(p.pos === 56){
       return false;
@@ -546,7 +542,8 @@ setTimeout(() => {
         .filter(
           (p) =>
             p.pos !== -1 ||
-            dice === 6
+            dice === 6 ||
+            dice === 1
         );
 
     console.log(
@@ -717,30 +714,30 @@ try {
     room.pieces[color][piece];
 
   if (currentPos === -1) {
-    if (room.lastDice !== 6) {
+    if (room.lastDice !== 6 && room.lastDice !== 1) {
       return bot.answerCallbackQuery(
         query.id,
         {
-          text: "Need a 6 to leave home",
+          text: "Need a 6 or 1 to leave home",
           show_alert: true,
         }
       );
     }
+  } else if (currentPos + room.lastDice > 56) {
+    return bot.answerCallbackQuery(
+      query.id,
+      {
+        text: "Need exact roll",
+        show_alert: true,
+      }
+    );
+  }
 
-    room.pieces[color][piece] = 0;
-  } else {
-    const newPos =
-      currentPos + room.lastDice;
+  const newPos = movePiece(
+    currentPos,
+    room.lastDice
+  );
 
-    if (newPos > 56) {
-      return bot.answerCallbackQuery(
-        query.id,
-        {
-          text: "Need exact roll",
-          show_alert: true,
-        }
-      );
-    }
    console.log(
   "MOVE",
   color,
@@ -753,7 +750,6 @@ try {
 );
     room.pieces[color][piece] =
       newPos;
-  }
 
   if (
   room.pieces[color][piece] === 56

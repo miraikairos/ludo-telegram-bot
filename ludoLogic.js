@@ -11,7 +11,13 @@ function movePiece(position, dice) {
     return -1;
   }
 
-  return position + dice;
+  const newPos = position + dice;
+
+  // Must land exactly on 56 (finish) - overshoot is an invalid move,
+  // so the piece stays put.
+  if (newPos > 56) return position;
+
+  return newPos;
 }
 
 module.exports = {
