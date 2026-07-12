@@ -1,6 +1,8 @@
 const { TelegramBot } = require("node-telegram-bot-api");
 const express = require("express");
 const app = express();
+const fs = require("fs");
+const path = require("path");
 const {
   rooms,
   createLobby,
@@ -10,6 +12,57 @@ const {
 } = require("./gameManager");
 const renderBoard = require("./boardRenderer");
 const PATH_LENGTH = 52;
+
+// ======================================
+// UNIQUE USER TRACKING (all-time count)
+// ======================================
+const USERS_FILE = path.join(__dirname, "users.json");
+
+let knownUsers = new Set();
+
+// Load previously seen users on startup (if the file exists)
+try {
+  const raw = fs.readFileSync(USERS_FILE, "utf8");
+  knownUsers = new Set(JSON.parse(raw));
+  console.log("Loaded", knownUsers.size, "known users");
+} catch (err) {
+  console.log("No existing users.json found, starting fresh");
+}
+
+function saveUsers() {
+  fs.writeFile(
+    USERS_FILE,
+    JSON.stringify([...knownUsers]),
+    (err) => {
+      if (err) console.error("Failed to save users.json:", err);
+    }
+  );
+}
+
+// Call this with a Telegram `from` object on every incoming
+// message/callback to record a new unique user if not seen before.
+function trackUser(from) {
+  if (!from || !from.id) return;
+
+  if (!knownUsers.has(from.id)) {
+    knownUsers.add(from.id);
+    saveUsers();
+  }
+}
+
+// Returns "@username" if the player has one set on Telegram,
+// otherwise falls back to their display name.
+function mention(player) {
+  return player.username
+    ? `@${player.username}`
+    : player.name;
+}
+
+// Optional: restrict /users to the bot owner by setting this env var
+// to your own Telegram numeric user id. If unset, anyone can check it.
+const OWNER_ID = process.env.OWNER_ID
+  ? Number(process.env.OWNER_ID)
+  : null;
 
 const START_INDEX = {
   red: 0,
@@ -32,6 +85,23 @@ const TOKEN = process.env.BOT_TOKEN;
 console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 
 const bot = new TelegramBot(TOKEN);
+
+// Track every user who sends any message to the bot (DM or group)
+bot.on("message", (msg) => {
+  trackUser(msg.from);
+});
+
+// /users - report the all-time unique user count
+bot.onText(/\/users/, (msg) => {
+  if (OWNER_ID && msg.from.id !== OWNER_ID) {
+    return; // silently ignore for non-owners
+  }
+
+  bot.sendMessage(
+    msg.chat.id,
+    `👥 ${knownUsers.size.toLocaleString("en-IN")} users have started the bot`
+  );
+});
 
 // Wraps bot.sendPhoto so that if the bot lacks permission to post photos
 // in a group (Telegram error: "not enough rights to send photos to the
@@ -117,7 +187,8 @@ bot.onText(/\/createludo/, async (msg) => {
   const room = createLobby(
     msg.chat.id,
     msg.from.id,
-    msg.from.first_name
+    msg.from.first_name,
+    msg.from.username
   );
 
   if (room.error) {
@@ -157,7 +228,8 @@ bot.onText(/\/join/, async (msg) => {
   const room = joinLobby(
     msg.chat.id,
     msg.from.id,
-    msg.from.first_name
+    msg.from.first_name,
+    msg.from.username
   );
 
   if (room.error) {
@@ -214,7 +286,7 @@ const playerList = room.players
     caption:
       `🎮 Ludo Started\n\n` +
       `Players:\n${playerList}\n` +
-      `Current Turn: 🔴 ${room.players[0].name}`,
+      `Current Turn: 🔴 ${mention(room.players[0])}`,
 
     reply_markup: {
       inline_keyboard: [[
@@ -248,7 +320,7 @@ bot.onText(/\/resume/, async (msg) => {
 
   await bot.sendMessage(
     msg.chat.id,
-    `🔄 Game resumed\n\n➡️ Turn: ${currentPlayer.name}`,
+    `🔄 Game resumed\n\n➡️ Turn: ${mention(currentPlayer)}`,
     {
       reply_markup: {
         inline_keyboard: [[
@@ -312,7 +384,7 @@ console.log(
 
   await bot.sendMessage(
     msg.chat.id,
-    `⏭️ ${currentPlayer.name} skipped the turn.\n\n➡️ Turn: ${nextPlayer.name}`,
+    `⏭️ ${mention(currentPlayer)} skipped the turn.\n\n➡️ Turn: ${mention(nextPlayer)}`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -358,6 +430,8 @@ bot.onText(/\/board/, async (msg) => {
 }
 });
 bot.on("callback_query", async (query) => {
+  trackUser(query.from);
+
   const room = getRoom(query.message.chat.id);
 if (
   query.data === "ROLL" &&
@@ -507,7 +581,7 @@ console.log(
 
   await bot.sendMessage(
     query.message.chat.id,
-    `➡️ Turn: ${nextPlayer.name}`,
+    `➡️ Turn: ${mention(nextPlayer)}`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -539,7 +613,7 @@ console.log(
 
   await bot.sendMessage(
     query.message.chat.id,
-    `➡️ Turn: ${nextPlayer.name}`,
+    `➡️ Turn: ${mention(nextPlayer)}`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -798,7 +872,7 @@ await bot.answerCallbackQuery(
 
   await bot.sendMessage(
     query.message.chat.id,
-    `➡️ Turn: ${nextPlayer.name}`,
+    `➡️ Turn: ${mention(nextPlayer)}`,
     {
       reply_markup: {
         inline_keyboard: [

@@ -2,7 +2,7 @@ const rooms = {};
 
 const COLORS = ["red", "blue", "green", "yellow"];
 
-function createLobby(chatId, creatorId, creatorName) {
+function createLobby(chatId, creatorId, creatorName, creatorUsername) {
   if (rooms[chatId]) {
     return { error: "A game already exists in this group." };
   }
@@ -14,14 +14,15 @@ function createLobby(chatId, creatorId, creatorName) {
 
     lobbyMessageId: null,
     boardMessageId: null,
-
+   
     currentTurn: 0,
     lastDice: 0,
-
+     pendingMove: null,
     players: [
       {
         id: creatorId,
         name: creatorName,
+        username: creatorUsername || null,
         color: COLORS[0],
       },
     ],
@@ -37,7 +38,7 @@ function createLobby(chatId, creatorId, creatorName) {
   return rooms[chatId];
 }
 
-function joinLobby(chatId, userId, userName) {
+function joinLobby(chatId, userId, userName, userUsername) {
   const room = rooms[chatId];
 
   if (!room) {
@@ -63,6 +64,7 @@ function joinLobby(chatId, userId, userName) {
   room.players.push({
     id: userId,
     name: userName,
+    username: userUsername || null,
     color: COLORS[room.players.length],
   });
 
@@ -78,6 +80,7 @@ function deleteRoom(chatId) {
 }
 
 module.exports = {
+  rooms,
   createLobby,
   joinLobby,
   getRoom,
