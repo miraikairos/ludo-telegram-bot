@@ -7,7 +7,7 @@ const START_POS = {
 
 function movePiece(position, dice) {
   if (position === -1) {
-    if (dice === 6) return 0;
+    if (dice === 1 || dice === 6) return 0;
     return -1;
   }
 
