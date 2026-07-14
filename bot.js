@@ -310,13 +310,15 @@ bot.onText(/\/startsnl/, async (msg) => {
   const image =
     await renderSnakeBoard(room);
 
-  await bot.sendPhoto(
-    msg.chat.id,
-    image,
-    {
-      caption:
-        "🐍 Snakes & Ladders Started",
+ const currentPlayer =
+  room.players[room.currentTurn];
 
+await bot.sendPhoto(
+  msg.chat.id,
+  image,
+  {
+    caption:
+      `🐍 Snakes & Ladders Started\n\n🎯 Turn: ${currentPlayer.name}`,
       reply_markup: {
         inline_keyboard: [[
           {
