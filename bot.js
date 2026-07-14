@@ -602,224 +602,126 @@ bot.on("callback_query", async (query) => {
   if (!room) return;
 if (query.data === "SNL_ROLL") {
   try {
-    const currentPlayer =
-      room.players[room.currentTurn];
+    const currentPlayer = room.players[room.currentTurn];
 
-    if (
-      query.from.id !==
-      currentPlayer.id
-    ) {
-      return bot.answerCallbackQuery(
-        query.id,
-        {
-          text: "Not your turn!",
-          show_alert: true,
-        }
-      );
-    }
-   if (
-  query.from.id !== currentPlayer.id
-) {
-  return bot.answerCallbackQuery(
-    query.id,
-    {
-      text: "Not your turn!",
-      show_alert: true,
-    }
-  );
-}
-
-// ADD THIS HERE
-await bot.answerCallbackQuery(
-  query.id
-);
-    const diceMsg =
-      await bot.sendDice(
-        query.message.chat.id
-      );
-
-    const dice =
-      diceMsg.dice.value;
-
-   let currentPos =
-  room.positions[
-    currentPlayer.id
-  ] || 1;
-
-    let newPos =
-      currentPos + dice;
-
-    // Exact 100 rule
-    if (newPos > 100) {
-      newPos = currentPos;
-
-      await bot.sendMessage(
-        query.message.chat.id,
-        `🎲 ${currentPlayer.name} rolled ${dice}.\nNeed exact roll to reach 100.`
-      );
-    } else {
-
-      // Ladder
-      if (ladders[newPos]) {
-
-        await bot.sendMessage(
-          query.message.chat.id,
-          `🪜 ${currentPlayer.name} climbed a ladder from ${newPos} to ${ladders[newPos]}`
-        );
-
-        newPos =
-          ladders[newPos];
-      }
-
-      // Snake
-      else if (
-        snakes[newPos]
-      ) {
-
-        await bot.sendMessage(
-          query.message.chat.id,
-          `🐍 ${currentPlayer.name} got bitten and fell from ${newPos} to ${snakes[newPos]}`
-        );
-
-        newPos =
-          snakes[newPos];
-      }
-
-      room.positions[
-        currentPlayer.id
-      ] = newPos;
+    if (query.from.id !== currentPlayer.id) {
+      return bot.answerCallbackQuery(query.id, {
+        text: "Not your turn!",
+        show_alert: true,
+      });
     }
 
-    // Winner
-    if (
-      newPos === 100 &&
-      !room.finishedPlayers.includes(
-        currentPlayer.id
-      )
-    ) {
-
-      room.finishedPlayers.push(
-        currentPlayer.id
-      );
-
-      await bot.sendMessage(
-        query.message.chat.id,
-        `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
-      );
+    // ✅ Prevent double clicks
+    if (room.processing) {
+      return bot.answerCallbackQuery(query.id, {
+        text: "⏳ Dice already rolling...",
+      });
     }
+    room.processing = true;
 
-    // Render board
-    const image =
-      await renderSnakeBoard(room);
+    await bot.answerCallbackQuery(query.id);
 
-    await bot.sendPhoto(
-      query.message.chat.id,
-      image,
-      {
-        caption:
-          `🎲 ${currentPlayer.name} rolled ${dice}\nPosition: ${newPos}`
-      }
-    );
+    // ✅ Send dice first
+    const diceMsg = await bot.sendDice(query.message.chat.id);
+    const dice = diceMsg.dice.value;
 
-    // Check if game should end
-    const activePlayers =
-      room.players.filter(
-        p =>
-          !room.finishedPlayers.includes(
-            p.id
-          )
-      );
+    // ✅ Wait 4 seconds for dice animation to finish, THEN send board
+    setTimeout(async () => {
+      try {
+        let currentPos = room.positions[currentPlayer.id] || 1;
+        let newPos = currentPos + dice;
 
-    if (
-      activePlayers.length <= 1
-    ) {
-
-      let result =
-        "🏁 Final Rankings\n\n";
-
-      room.finishedPlayers.forEach(
-        (id, index) => {
-
-          const player =
-            room.players.find(
-              p => p.id === id
+        // Exact 100 rule
+        if (newPos > 100) {
+          newPos = currentPos;
+          await bot.sendMessage(
+            query.message.chat.id,
+            `🎲 ${currentPlayer.name} rolled ${dice}.\nNeed exact roll to reach 100.`
+          );
+        } else {
+          // 🪜 Ladder
+          if (ladders[newPos]) {
+            await bot.sendMessage(
+              query.message.chat.id,
+              `🪜 ${currentPlayer.name} climbed a ladder from ${newPos} to ${ladders[newPos]}`
             );
+            newPos = ladders[newPos];
+          }
+          // 🐍 Snake
+          else if (snakes[newPos]) {
+            await bot.sendMessage(
+              query.message.chat.id,
+              `🐍 ${currentPlayer.name} got bitten and fell from ${newPos} to ${snakes[newPos]}`
+            );
+            newPos = snakes[newPos];
+          }
 
-          result +=
-            `${index + 1}. ${player.name}\n`;
+          room.positions[currentPlayer.id] = newPos;
         }
-      );
 
-      await bot.sendMessage(
-        query.message.chat.id,
-        result
-      );
+        // 🏆 Winner check
+        if (newPos === 100 && !room.finishedPlayers.includes(currentPlayer.id)) {
+          room.finishedPlayers.push(currentPlayer.id);
+          await bot.sendMessage(
+            query.message.chat.id,
+            `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
+          );
+        }
 
-      deleteRoom(
-        query.message.chat.id
-      );
+        // ✅ Render and send board AFTER 4 seconds
+        const image = await renderSnakeBoard(room);
+        await bot.sendPhoto(query.message.chat.id, image, {
+          caption: `🎲 ${currentPlayer.name} rolled ${dice}\nPosition: ${newPos}`,
+        });
 
-      return;
-    }
+        // Game end check
+        const activePlayers = room.players.filter(
+          (p) => !room.finishedPlayers.includes(p.id)
+        );
 
-    // Extra turn on 6
-    if (dice !== 6) {
+        if (activePlayers.length <= 1) {
+          let result = "🏁 Final Rankings\n\n";
+          room.finishedPlayers.forEach((id, index) => {
+            const player = room.players.find((p) => p.id === id);
+            result += `${index + 1}. ${player.name}\n`;
+          });
+          await bot.sendMessage(query.message.chat.id, result);
+          deleteRoom(query.message.chat.id);
+          room.processing = false;
+          return;
+        }
 
-      do {
+        // Next turn
+        room.currentTurn = (room.currentTurn + 1) % room.players.length;
+        const nextPlayer = room.players[room.currentTurn];
 
-        room.currentTurn =
-          (room.currentTurn + 1) %
-          room.players.length;
+        await bot.sendMessage(
+          query.message.chat.id,
+          `➡️ Turn: ${nextPlayer.name}`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "🎲 Roll Dice", callback_data: "SNL_ROLL" }],
+              ],
+            },
+          }
+        );
 
-      } while (
-        room.finishedPlayers.includes(
-          room.players[
-            room.currentTurn
-          ].id
-        )
-      );
-    }
+        room.processing = false; // ✅ Unlock
 
-    const nextPlayer =
-      room.players[
-        room.currentTurn
-      ];
-
-    await bot.sendMessage(
-      query.message.chat.id,
-      `➡️ Turn: ${nextPlayer.name}`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "🎲 Roll",
-                callback_data:
-                  "SNL_ROLL",
-              },
-            ],
-          ],
-        },
+      } catch (err) {
+        console.error("SNL ERROR:", err);
+        await bot.sendMessage(query.message.chat.id, `❌ ${err.message}`);
+        room.processing = false; // ✅ Always unlock on error
       }
-    );
-
-   
+    }, 4000); // ✅ 4 seconds = Telegram dice animation duration
 
   } catch (err) {
-
-    console.error(
-      "SNL ERROR:",
-      err
-    );
-
-    await bot.sendMessage(
-      query.message.chat.id,
-      `❌ ${err.message}`
-    );
+    console.error("SNL ROLL ERROR:", err);
+    room.processing = false;
   }
-
-  return;
 }
+
   // =====================
   // ROLL DICE
   // =====================
