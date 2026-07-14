@@ -306,7 +306,9 @@ bot.onText(/\/startsnl/, async (msg) => {
   room.players.forEach((p) => {
     room.positions[p.id] = 1;
   });
-
+await new Promise(resolve =>
+  setTimeout(resolve, 3000)
+);
   const image =
     await renderSnakeBoard(room);
 
@@ -437,9 +439,8 @@ bot.onText(/\/startgame/, async (msg) => {
 const playerList = room.players
   .map((p) => `${emoji[p.color]} ${p.name}`)
   .join("\n");
-  console.log("Before render");
   const image = await renderBoard(room);
- console.log("After render");
+
  const sent = await safeSendPhoto(
   msg.chat.id,
   image,
