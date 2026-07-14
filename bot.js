@@ -312,23 +312,36 @@ bot.onText(/\/startsnl/, async (msg) => {
 
  const currentPlayer =
   room.players[room.currentTurn];
+const colors = [
+  "🔴",
+  "🔵",
+  "🟢",
+  "🟡",
+  "🟣"
+];
+
+let legend = "🎨 Colors\n\n";
+
+room.players.forEach((p, i) => {
+  legend += `${colors[i]} ${p.name}\n`;
+});
 
 await bot.sendPhoto(
   msg.chat.id,
   image,
   {
     caption:
-      `🐍 Snakes & Ladders Started\n\n🎯 Turn: ${currentPlayer.name}`,
-      reply_markup: {
-        inline_keyboard: [[
-          {
-            text: "🎲 Roll",
-            callback_data: "SNL_ROLL",
-          },
-        ]],
-      },
-    }
-  );
+      `🐍 Snakes & Ladders Started\n\n${legend}\n🎯 Turn: ${currentPlayer.name}`,
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: "🎲 Roll",
+          callback_data: "SNL_ROLL",
+        },
+      ]],
+    },
+  }
+);
 });
 function buildSnlLobby(room) {
   let text = "🐍 Snakes & Ladders Lobby\n\n";
@@ -601,7 +614,22 @@ if (query.data === "SNL_ROLL") {
         }
       );
     }
+   if (
+  query.from.id !== currentPlayer.id
+) {
+  return bot.answerCallbackQuery(
+    query.id,
+    {
+      text: "Not your turn!",
+      show_alert: true,
+    }
+  );
+}
 
+// ADD THIS HERE
+await bot.answerCallbackQuery(
+  query.id
+);
     const diceMsg =
       await bot.sendDice(
         query.message.chat.id
@@ -610,10 +638,10 @@ if (query.data === "SNL_ROLL") {
     const dice =
       diceMsg.dice.value;
 
-    let currentPos =
-      room.positions[
-        currentPlayer.id
-      ];
+   let currentPos =
+  room.positions[
+    currentPlayer.id
+  ] || 1;
 
     let newPos =
       currentPos + dice;
@@ -772,9 +800,7 @@ if (query.data === "SNL_ROLL") {
       }
     );
 
-    await bot.answerCallbackQuery(
-      query.id
-    );
+   
 
   } catch (err) {
 
