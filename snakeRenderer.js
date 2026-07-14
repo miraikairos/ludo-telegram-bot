@@ -1,6 +1,8 @@
 const { createCanvas, loadImage } = require("canvas");
-
+ const path = require("path");
 const BOARD_SIZE = 1250;
+let boardImage = null;
+
 function getCellPosition(cell) {
   const size = 125;
 
@@ -20,6 +22,15 @@ function getCellPosition(cell) {
 
   return { x, y };
 }
+async function getBoard() {
+  if (!boardImage) {
+    boardImage = await loadImage(
+      path.join(__dirname, "snakeboard.png")
+    );
+  }
+
+  return boardImage;
+}
 async function renderSnakeBoard(room) {
   const canvas = createCanvas(
     BOARD_SIZE,
@@ -27,12 +38,10 @@ async function renderSnakeBoard(room) {
   );
 
   const ctx = canvas.getContext("2d");
+ 
+ 
+const board = await getBoard();
 
-  const path = require("path");
-
-const board = await loadImage(
-  path.join(__dirname, "snakeboard.png")
-);
 
   ctx.drawImage(
     board,
@@ -74,7 +83,9 @@ room.players.forEach((player, i) => {
   ctx.stroke();
 });
 
-  return canvas.toBuffer();
+ return canvas.toBuffer("image/jpeg", {
+  quality: 0.8,
+});
 }
 
 module.exports = renderSnakeBoard;
