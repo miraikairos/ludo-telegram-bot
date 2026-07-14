@@ -243,7 +243,9 @@ function buildLobbyText(room) {
   );
 
   room.gameType = "snl";
-
+ room.positions = {};
+room.finishedPlayers = [];
+room.currentTurn = 0;
   const sent = await bot.sendMessage(
     msg.chat.id,
     "🐍 Snakes & Ladders Lobby\n\nUse /join"
@@ -251,6 +253,7 @@ function buildLobbyText(room) {
 
   room.lobbyMessageId = sent.message_id;
 });
+
 bot.onText(/\/createludo/, async (msg) => {
   if (msg.chat.type === "private") {
     return bot.sendMessage(
@@ -325,6 +328,19 @@ bot.onText(/\/startsnl/, async (msg) => {
     }
   );
 });
+function buildSnlLobby(room) {
+  let text = "🐍 Snakes & Ladders Lobby\n\n";
+
+  room.players.forEach((p) => {
+    text += `👤 ${p.name}\n`;
+  });
+
+  text += `\nPlayers: ${room.players.length}/5`;
+  text += `\n\nUse /join to enter`;
+  text += `\nUse /startsnl when ready`;
+
+  return text;
+}
 
 bot.onText(/\/endludo/, (msg) => {
   const chatId = msg.chat.id;
@@ -359,14 +375,20 @@ bot.onText(/\/join/, async (msg) => {
       room.error
     );
   }
+  const text =
+  room.gameType === "snl"
+    ? buildSnlLobby(room)
+    : buildLobbyText(room);
 
-  await bot.editMessageText(
-    buildLobbyText(room),
-    {
-      chat_id: msg.chat.id,
-      message_id: room.lobbyMessageId,
-    }
-  );
+await bot.editMessageText(
+  text,
+  {
+    chat_id: msg.chat.id,
+    message_id: room.lobbyMessageId,
+  }
+);
+
+  
 });
 
 bot.onText(/\/startgame/, async (msg) => {
