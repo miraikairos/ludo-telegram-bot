@@ -25,7 +25,7 @@ function getCellPosition(cell) {
 async function getBoard() {
   if (!boardImage) {
     boardImage = await loadImage(
-      path.join(__dirname, "snakeboard.png")
+      path.join(__dirname, "snakeboard.jpeg")
     );
   }
 
