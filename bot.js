@@ -400,13 +400,19 @@ bot.onText(/\/join/, async (msg) => {
     ? buildSnlLobby(room)
     : buildLobbyText(room);
 
-await bot.editMessageText(
-  text,
-  {
-    chat_id: msg.chat.id,
-    message_id: room.lobbyMessageId,
-  }
-);
+try {
+  await bot.editMessageText(
+    text,
+    {
+      chat_id: msg.chat.id,
+      message_id: room.lobbyMessageId,
+    }
+  );
+} catch (err) {
+  console.log(
+    "Lobby message missing"
+  );
+}
 
   
 });
