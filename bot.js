@@ -381,6 +381,23 @@ bot.onText(/\/endludo/, (msg) => {
     "🛑 Ludo game ended successfully."
   );
 });
+bot.onText(/\/endgame/, (msg) => {
+  const room = getRoom(msg.chat.id);
+
+  if (!room) {
+    return bot.sendMessage(
+      msg.chat.id,
+      "❌ No active game."
+    );
+  }
+
+  deleteRoom(msg.chat.id);
+
+  bot.sendMessage(
+    msg.chat.id,
+    "🛑 Game ended."
+  );
+});
 bot.onText(/\/join/, async (msg) => {
   const room = joinLobby(
     msg.chat.id,
