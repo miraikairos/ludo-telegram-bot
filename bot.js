@@ -11,6 +11,12 @@ const {
   deleteRoom,
 } = require("./gameManager");
 const renderBoard = require("./boardRenderer");
+const renderSnakeBoard =
+  require("./snakeRenderer");
+const {
+  ladders,
+  snakes,
+} = require("./snakesData");
 const { START_POS, movePiece } = require("./ludoLogic");
 const PATH_LENGTH = 52;
 
@@ -237,7 +243,24 @@ bot.onText(/\/createludo/, async (msg) => {
       "This game works only in groups."
     );
   }
+ bot.onText(/\/createsnl/, async (msg) => {
+  const room = createLobby(
+    msg.chat.id,
+    msg.from.id,
+    msg.from.first_name
+  );
 
+  room.gameType = "snl";
+ room.positions = {};
+room.finishedPlayers = [];
+room.currentTurn = 0;
+  const sent = await bot.sendMessage(
+    msg.chat.id,
+    "🐍 Snakes & Ladders Lobby\n\nUse /join"
+  );
+
+  room.lobbyMessageId = sent.message_id;
+});
   const room = createLobby(
     msg.chat.id,
     msg.from.id,
@@ -259,6 +282,52 @@ bot.onText(/\/createludo/, async (msg) => {
 
   room.lobbyMessageId = sent.message_id;
 });
+
+bot.onText(/\/startsnl/, async (msg) => {
+  const room = getRoom(msg.chat.id);
+
+  if (!room) return;
+
+  if (room.players.length < 2)
+    return bot.sendMessage(
+      msg.chat.id,
+      "Need at least 2 players"
+    );
+
+  if (room.players.length > 5)
+    return bot.sendMessage(
+      msg.chat.id,
+      "Maximum 5 players"
+    );
+
+  room.started = true;
+
+  room.players.forEach((p) => {
+    room.positions[p.id] = 1;
+  });
+
+  const image =
+    await renderSnakeBoard(room);
+
+  await bot.sendPhoto(
+    msg.chat.id,
+    image,
+    {
+      caption:
+        "🐍 Snakes & Ladders Started",
+
+      reply_markup: {
+        inline_keyboard: [[
+          {
+            text: "🎲 Roll",
+            callback_data: "SNL_ROLL",
+          },
+        ]],
+      },
+    }
+  );
+});
+
 bot.onText(/\/endludo/, (msg) => {
   const chatId = msg.chat.id;
 
@@ -493,7 +562,213 @@ bot.on("callback_query", async (query) => {
     query.data
   );
   if (!room) return;
+if (query.data === "SNL_ROLL") {
+  try {
+    const currentPlayer =
+      room.players[room.currentTurn];
 
+    if (
+      query.from.id !==
+      currentPlayer.id
+    ) {
+      return bot.answerCallbackQuery(
+        query.id,
+        {
+          text: "Not your turn!",
+          show_alert: true,
+        }
+      );
+    }
+
+    const diceMsg =
+      await bot.sendDice(
+        query.message.chat.id
+      );
+
+    const dice =
+      diceMsg.dice.value;
+
+    let currentPos =
+      room.positions[
+        currentPlayer.id
+      ];
+
+    let newPos =
+      currentPos + dice;
+
+    // Exact 100 rule
+    if (newPos > 100) {
+      newPos = currentPos;
+
+      await bot.sendMessage(
+        query.message.chat.id,
+        `🎲 ${currentPlayer.name} rolled ${dice}.\nNeed exact roll to reach 100.`
+      );
+    } else {
+
+      // Ladder
+      if (ladders[newPos]) {
+
+        await bot.sendMessage(
+          query.message.chat.id,
+          `🪜 ${currentPlayer.name} climbed a ladder from ${newPos} to ${ladders[newPos]}`
+        );
+
+        newPos =
+          ladders[newPos];
+      }
+
+      // Snake
+      else if (
+        snakes[newPos]
+      ) {
+
+        await bot.sendMessage(
+          query.message.chat.id,
+          `🐍 ${currentPlayer.name} got bitten and fell from ${newPos} to ${snakes[newPos]}`
+        );
+
+        newPos =
+          snakes[newPos];
+      }
+
+      room.positions[
+        currentPlayer.id
+      ] = newPos;
+    }
+
+    // Winner
+    if (
+      newPos === 100 &&
+      !room.finishedPlayers.includes(
+        currentPlayer.id
+      )
+    ) {
+
+      room.finishedPlayers.push(
+        currentPlayer.id
+      );
+
+      await bot.sendMessage(
+        query.message.chat.id,
+        `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
+      );
+    }
+
+    // Render board
+    const image =
+      await renderSnakeBoard(room);
+
+    await bot.sendPhoto(
+      query.message.chat.id,
+      image,
+      {
+        caption:
+          `🎲 ${currentPlayer.name} rolled ${dice}\nPosition: ${newPos}`
+      }
+    );
+
+    // Check if game should end
+    const activePlayers =
+      room.players.filter(
+        p =>
+          !room.finishedPlayers.includes(
+            p.id
+          )
+      );
+
+    if (
+      activePlayers.length <= 1
+    ) {
+
+      let result =
+        "🏁 Final Rankings\n\n";
+
+      room.finishedPlayers.forEach(
+        (id, index) => {
+
+          const player =
+            room.players.find(
+              p => p.id === id
+            );
+
+          result +=
+            `${index + 1}. ${player.name}\n`;
+        }
+      );
+
+      await bot.sendMessage(
+        query.message.chat.id,
+        result
+      );
+
+      deleteRoom(
+        query.message.chat.id
+      );
+
+      return;
+    }
+
+    // Extra turn on 6
+    if (dice !== 6) {
+
+      do {
+
+        room.currentTurn =
+          (room.currentTurn + 1) %
+          room.players.length;
+
+      } while (
+        room.finishedPlayers.includes(
+          room.players[
+            room.currentTurn
+          ].id
+        )
+      );
+    }
+
+    const nextPlayer =
+      room.players[
+        room.currentTurn
+      ];
+
+    await bot.sendMessage(
+      query.message.chat.id,
+      `➡️ Turn: ${nextPlayer.name}`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "🎲 Roll",
+                callback_data:
+                  "SNL_ROLL",
+              },
+            ],
+          ],
+        },
+      }
+    );
+
+    await bot.answerCallbackQuery(
+      query.id
+    );
+
+  } catch (err) {
+
+    console.error(
+      "SNL ERROR:",
+      err
+    );
+
+    await bot.sendMessage(
+      query.message.chat.id,
+      `❌ ${err.message}`
+    );
+  }
+
+  return;
+}
   // =====================
   // ROLL DICE
   // =====================
