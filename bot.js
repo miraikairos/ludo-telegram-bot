@@ -235,14 +235,6 @@ function buildLobbyText(room) {
 
   return text;
 }
-
-bot.onText(/\/createludo/, async (msg) => {
-  if (msg.chat.type === "private") {
-    return bot.sendMessage(
-      msg.chat.id,
-      "This game works only in groups."
-    );
-  }
  bot.onText(/\/createsnl/, async (msg) => {
   const room = createLobby(
     msg.chat.id,
@@ -251,9 +243,7 @@ bot.onText(/\/createludo/, async (msg) => {
   );
 
   room.gameType = "snl";
- room.positions = {};
-room.finishedPlayers = [];
-room.currentTurn = 0;
+
   const sent = await bot.sendMessage(
     msg.chat.id,
     "🐍 Snakes & Ladders Lobby\n\nUse /join"
@@ -261,6 +251,14 @@ room.currentTurn = 0;
 
   room.lobbyMessageId = sent.message_id;
 });
+bot.onText(/\/createludo/, async (msg) => {
+  if (msg.chat.type === "private") {
+    return bot.sendMessage(
+      msg.chat.id,
+      "This game works only in groups."
+    );
+  }
+
   const room = createLobby(
     msg.chat.id,
     msg.from.id,

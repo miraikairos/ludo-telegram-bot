@@ -11,7 +11,7 @@ async function renderSnakeBoard(room) {
   const ctx = canvas.getContext("2d");
 
   const board = await loadImage(
-    "./snakeboard.webp"
+    "./snakeboard.png"
   );
 
   ctx.drawImage(
