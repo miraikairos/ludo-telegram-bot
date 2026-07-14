@@ -310,6 +310,9 @@ bot.onText(/\/startsnl/, async (msg) => {
   const image =
     await renderSnakeBoard(room);
 
+console.timeEnd("render");
+
+console.time("upload");
  const currentPlayer =
   room.players[room.currentTurn];
 const colors = [
@@ -326,7 +329,7 @@ room.players.forEach((p, i) => {
   legend += `${colors[i]} ${p.name}\n`;
 });
 
-await bot.sendPhoto(
+await safeSendPhoto(
   msg.chat.id,
   image,
   {
