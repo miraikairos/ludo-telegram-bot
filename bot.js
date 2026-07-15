@@ -687,7 +687,14 @@ if (query.data === "SNL_ROLL") {
             `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
           );
         }
-
+       do {
+  room.currentTurn =
+    (room.currentTurn + 1) % room.players.length;
+} while (
+  room.finishedPlayers.includes(
+    room.players[room.currentTurn].id
+  )
+);
         // ✅ Telegram's dice sticker animates for ~4s on the player's
         // screen. Only wait out whatever time is LEFT of that window —
         // if the render/network above was already slow, don't add more
