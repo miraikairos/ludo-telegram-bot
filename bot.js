@@ -640,23 +640,16 @@ if (query.data === "SNL_ROLL") {
     await bot.answerCallbackQuery(query.id);
 
     // ✅ Send dice first
+    const diceSentAt = Date.now();
     const diceMsg = await bot.sendDice(query.message.chat.id);
     const dice = diceMsg.dice.value;
 
-    // ✅ Process move and send board immediately (no artificial wait —
-    // Telegram's dice sticker animates client-side on its own either way)
+    // ✅ Process the move; the board photo waits only as long as
+    // needed for the dice animation (see below), no extra text spam
     (async () => {
       try {
         let currentPos = room.positions[currentPlayer.id] || 1;
         let newPos = currentPos + dice;
-
-        // ✅ Instant feedback — sent before the (possibly slow) board
-        // render/upload, so the player isn't staring at a blank chat
-        // if rendering takes a few extra seconds.
-        await bot.sendMessage(
-          query.message.chat.id,
-          `🎲 ${currentPlayer.name} rolled ${dice}`
-        );
 
         // Exact 100 rule
         if (newPos > 100) {
@@ -693,6 +686,18 @@ if (query.data === "SNL_ROLL") {
             query.message.chat.id,
             `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
           );
+        }
+
+        // ✅ Telegram's dice sticker animates for ~4s on the player's
+        // screen. Only wait out whatever time is LEFT of that window —
+        // if the render/network above was already slow, don't add more
+        // delay on top; if it was fast, wait just enough so the board
+        // doesn't beat the animation.
+        const DICE_ANIMATION_MS = 4000;
+        const elapsed = Date.now() - diceSentAt;
+        const remaining = DICE_ANIMATION_MS - elapsed;
+        if (remaining > 0) {
+          await new Promise((r) => setTimeout(r, remaining));
         }
 
         // ✅ Render and send board right away
