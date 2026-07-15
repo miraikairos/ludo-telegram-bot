@@ -306,15 +306,9 @@ bot.onText(/\/startsnl/, async (msg) => {
   room.players.forEach((p) => {
     room.positions[p.id] = 1;
   });
-await new Promise(resolve =>
-  setTimeout(resolve, 3000)
-);
   const image =
     await renderSnakeBoard(room);
 
-console.timeEnd("render");
-
-console.time("upload");
  const currentPlayer =
   room.players[room.currentTurn];
 const colors = [
