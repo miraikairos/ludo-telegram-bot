@@ -1,11 +1,13 @@
 const { createCanvas, loadImage } = require("canvas");
  const path = require("path");
-const BOARD_SIZE = 1250;
+// Telegram displays/compresses photos small anyway, so a smaller
+// canvas cuts render + JPEG-encode + upload time on every roll with
+// no visible quality loss, while keeping cell math in proportion.
+const BOARD_SIZE = 800;
+const CELL_SIZE = BOARD_SIZE / 10;
 let boardImage = null;
 
 function getCellPosition(cell) {
-  const size = 125;
-
   const row = Math.floor((cell - 1) / 10);
   const colInRow = (cell - 1) % 10;
 
@@ -14,11 +16,11 @@ function getCellPosition(cell) {
       ? colInRow
       : 9 - colInRow;
 
-  const x = col * size + size / 2;
+  const x = col * CELL_SIZE + CELL_SIZE / 2;
 
   const y =
-    1250 -
-    (row * size + size / 2);
+    BOARD_SIZE -
+    (row * CELL_SIZE + CELL_SIZE / 2);
 
   return { x, y };
 }
@@ -68,9 +70,9 @@ room.players.forEach((player, i) => {
   ctx.beginPath();
 
   ctx.arc(
-    x + (i % 2) * 20 - 10,
-    y + Math.floor(i / 2) * 20 - 10,
-    18,
+    x + (i % 2) * 13 - 6,
+    y + Math.floor(i / 2) * 13 - 6,
+    12,
     0,
     Math.PI * 2
   );
@@ -79,12 +81,12 @@ room.players.forEach((player, i) => {
   ctx.fill();
 
   ctx.strokeStyle = "white";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.stroke();
 });
 
  return canvas.toBuffer("image/jpeg", {
-  quality: 0.8,
+  quality: 0.75,
 });
 }
 

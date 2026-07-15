@@ -643,11 +643,20 @@ if (query.data === "SNL_ROLL") {
     const diceMsg = await bot.sendDice(query.message.chat.id);
     const dice = diceMsg.dice.value;
 
-    // ✅ Wait 4 seconds for dice animation to finish, THEN send board
-    setTimeout(async () => {
+    // ✅ Process move and send board immediately (no artificial wait —
+    // Telegram's dice sticker animates client-side on its own either way)
+    (async () => {
       try {
         let currentPos = room.positions[currentPlayer.id] || 1;
         let newPos = currentPos + dice;
+
+        // ✅ Instant feedback — sent before the (possibly slow) board
+        // render/upload, so the player isn't staring at a blank chat
+        // if rendering takes a few extra seconds.
+        await bot.sendMessage(
+          query.message.chat.id,
+          `🎲 ${currentPlayer.name} rolled ${dice}`
+        );
 
         // Exact 100 rule
         if (newPos > 100) {
@@ -686,7 +695,7 @@ if (query.data === "SNL_ROLL") {
           );
         }
 
-        // ✅ Render and send board AFTER 4 seconds
+        // ✅ Render and send board right away
         const image = await renderSnakeBoard(room);
         await bot.sendPhoto(query.message.chat.id, image, {
           caption: `🎲 ${currentPlayer.name} rolled ${dice}\nPosition: ${newPos}`,
@@ -732,7 +741,7 @@ if (query.data === "SNL_ROLL") {
         await bot.sendMessage(query.message.chat.id, `❌ ${err.message}`);
         room.processing = false; // ✅ Always unlock on error
       }
-    }, 4000); // ✅ 4 seconds = Telegram dice animation duration
+    })();
 
   } catch (err) {
     console.error("SNL ROLL ERROR:", err);
