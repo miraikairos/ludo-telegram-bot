@@ -620,6 +620,14 @@ bot.on("callback_query", async (query) => {
   if (!room) return;
 if (query.data === "SNL_ROLL") {
   try {
+    console.log(
+      "SNL ROLL - players:",
+      room.players.map((p) => p.name),
+      "currentTurn:",
+      room.currentTurn,
+      "clicked by:",
+      query.from.first_name
+    );
     const currentPlayer = room.players[room.currentTurn];
 
     if (query.from.id !== currentPlayer.id) {
@@ -687,14 +695,7 @@ if (query.data === "SNL_ROLL") {
             `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
           );
         }
-       do {
-  room.currentTurn =
-    (room.currentTurn + 1) % room.players.length;
-} while (
-  room.finishedPlayers.includes(
-    room.players[room.currentTurn].id
-  )
-);
+
         // ✅ Telegram's dice sticker animates for ~4s on the player's
         // screen. Only wait out whatever time is LEFT of that window —
         // if the render/network above was already slow, don't add more
@@ -731,7 +732,28 @@ if (query.data === "SNL_ROLL") {
         }
 
         // Next turn
-        room.currentTurn = (room.currentTurn + 1) % room.players.length;
+        console.log(
+          "SNL turn advance - before:",
+          room.currentTurn,
+          "players.length:",
+          room.players.length
+        );
+        // Advance to the next player, skipping anyone who has
+        // already finished (reached square 100).
+        do {
+          room.currentTurn =
+            (room.currentTurn + 1) % room.players.length;
+        } while (
+          room.finishedPlayers.includes(
+            room.players[room.currentTurn].id
+          )
+        );
+        console.log(
+          "SNL turn advance - after:",
+          room.currentTurn,
+          "next player:",
+          room.players[room.currentTurn].name
+        );
         const nextPlayer = room.players[room.currentTurn];
 
         await bot.sendMessage(
