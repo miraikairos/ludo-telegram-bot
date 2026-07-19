@@ -33,7 +33,7 @@ try {
   knownUsers = new Set(JSON.parse(raw));
   console.log("Loaded", knownUsers.size, "known users");
 } catch (err) {
-  console.log("No existing users.json found, starting fresh");
+  console.log("No existing users.json found, starti/g fresh");
 }
 
 function saveUsers() {
@@ -107,6 +107,9 @@ function buildStartText() {
     "• Use <code>/createludo</code> to create a lobby\n" +
     "• Friends join with <code>/join</code>\n" +
     "• Use <code>/startgame</code> when everyone is ready\n\n" +
+     "• Use <code>/createsnl</code> to create snakeladderlobby\n\n" +
+      "• Use <code>/endgame</code> to end snake ladder game\n\n" +
+        "• Use <code>/startsnl</code> to start snake ladder game\n\n" +
     "Ready to roll the dice?"
   );
 }
