@@ -1188,8 +1188,9 @@ try {
   room.processingMove = true;
 
   // Answer right away so Telegram stops showing the button as "loading",
-  // which is what tempts a re-tap in the first place.
-  await bot.answerCallbackQuery(query.id).catch(() => {});
+  // which is what tempts a re-tap in the first place. Not awaited, so it
+  // doesn't add a network round-trip in front of the board render/send.
+  bot.answerCallbackQuery(query.id).catch(() => {});
 
   // Clear keyboard of the active message immediately
   if (room.activeMessageId) {
