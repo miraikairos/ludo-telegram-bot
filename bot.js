@@ -88,6 +88,106 @@ console.log("BOT_TOKEN exists:", !!process.env.BOT_TOKEN);
 
 const bot = new TelegramBot(TOKEN);
 
+let cachedBotUsername = null;
+
+async function getBotUsername() {
+  if (cachedBotUsername) return cachedBotUsername;
+
+  const me = await bot.getMe();
+  cachedBotUsername = me.username;
+  return cachedBotUsername;
+}
+
+function buildStartText() {
+  return (
+    "🎲 <b>Welcome to Ludo Bot!</b>\n\n" +
+    "A fun multiplayer Ludo game you can play directly in Telegram.\n\n" +
+    "<b>Quick Start</b>\n" +
+    "• Add me to a group\n" +
+    "• Use <code>/createludo</code> to create a lobby\n" +
+    "• Friends join with <code>/join</code>\n" +
+    "• Use <code>/startgame</code> when everyone is ready\n\n" +
+    "Ready to roll the dice?"
+  );
+}
+
+function buildHowToPlayText() {
+  return (
+    "🎮 <b>How to play Ludo</b>\n\n" +
+    "1. Add the bot to a group\n" +
+    "2. Run <code>/createludo</code>\n" +
+    "3. Other players join with <code>/join</code>\n" +
+    "4. Start the match with <code>/startgame</code>\n" +
+    "5. Tap <b>🎲 Roll Dice</b> on your turn\n\n" +
+    "<i>Note:</i> Ludo works in groups only."
+  );
+}
+
+function buildCommandsText(chatType = "private") {
+  const privateExtras =
+    chatType === "private"
+      ? "\n\n<b>Private chat</b>\n• <code>/start</code> — open this welcome message\n• <code>/help</code> — show instructions"
+      : "";
+
+  return (
+    "📜 <b>Ludo commands</b>\n\n" +
+    "<b>Group commands</b>\n" +
+    "• <code>/createludo</code> — create a lobby\n" +
+    "• <code>/join</code> — join the current lobby\n" +
+    "• <code>/startgame</code> — start the Ludo match\n" +
+    "• <code>/board</code> — show the current board\n" +
+    "• <code>/skip</code> — skip your turn\n" +
+    "• <code>/endgame</code> — end the active game" +
+    privateExtras
+  );
+}
+
+async function sendPrivateStart(chatId) {
+  const username = await getBotUsername();
+
+  return safeSendMessage(chatId, buildStartText(), {
+    parse_mode: "HTML",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "➕ Add me to your Group",
+            url: "https://t.me/" + username + "?startgroup=ludo",
+          },
+        ],
+        [
+          {
+            text: "📖 How to Play",
+            callback_data: "SHOW_START_HELP",
+          },
+          {
+            text: "🎮 Commands",
+            callback_data: "SHOW_START_COMMANDS",
+          },
+        ],
+      ],
+    },
+  });
+}
+
+bot.onText(/\/start(?:\s+.*)?$/, async (msg) => {
+  if (msg.chat.type === "private") {
+    return sendPrivateStart(msg.chat.id);
+  }
+
+  return safeSendMessage(
+    msg.chat.id,
+    "🎲 Ludo is ready!\n\nUse /createludo to create a lobby, /join to enter, and /startgame when everyone is ready."
+  );
+});
+
+bot.onText(/\/help(?:\s+.*)?$/, async (msg) => {
+  return safeSendMessage(
+    msg.chat.id,
+    buildCommandsText(msg.chat.type),
+    { parse_mode: "HTML" }
+  );
+});
 // Track every user who sends any message to the bot (DM or group)
 bot.on("message", (msg) => {
   trackUser(msg.from);
@@ -611,23 +711,34 @@ bot.onText(/\/board/, async (msg) => {
 bot.on("callback_query", async (query) => {
   trackUser(query.from);
 
-  const room = getRoom(query.message.chat.id);
-
-   console.log(
+  console.log(
     "CALLBACK RECEIVED:",
     query.data
   );
+
+  if (query.data === "SHOW_START_HELP") {
+    await bot.answerCallbackQuery(query.id);
+    return safeSendMessage(
+      query.message.chat.id,
+      buildHowToPlayText(),
+      { parse_mode: "HTML" }
+    );
+  }
+
+  if (query.data === "SHOW_START_COMMANDS") {
+    await bot.answerCallbackQuery(query.id);
+    return safeSendMessage(
+      query.message.chat.id,
+      buildCommandsText(query.message.chat.type),
+      { parse_mode: "HTML" }
+    );
+  }
+
+  const room = getRoom(query.message.chat.id);
+
   if (!room) return;
 if (query.data === "SNL_ROLL") {
   try {
-    console.log(
-      "SNL ROLL - players:",
-      room.players.map((p) => p.name),
-      "currentTurn:",
-      room.currentTurn,
-      "clicked by:",
-      query.from.first_name
-    );
     const currentPlayer = room.players[room.currentTurn];
 
     if (query.from.id !== currentPlayer.id) {
@@ -695,7 +806,14 @@ if (query.data === "SNL_ROLL") {
             `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
           );
         }
-
+       do {
+  room.currentTurn =
+    (room.currentTurn + 1) % room.players.length;
+} while (
+  room.finishedPlayers.includes(
+    room.players[room.currentTurn].id
+  )
+);
         // ✅ Telegram's dice sticker animates for ~4s on the player's
         // screen. Only wait out whatever time is LEFT of that window —
         // if the render/network above was already slow, don't add more
@@ -732,28 +850,7 @@ if (query.data === "SNL_ROLL") {
         }
 
         // Next turn
-        console.log(
-          "SNL turn advance - before:",
-          room.currentTurn,
-          "players.length:",
-          room.players.length
-        );
-        // Advance to the next player, skipping anyone who has
-        // already finished (reached square 100).
-        do {
-          room.currentTurn =
-            (room.currentTurn + 1) % room.players.length;
-        } while (
-          room.finishedPlayers.includes(
-            room.players[room.currentTurn].id
-          )
-        );
-        console.log(
-          "SNL turn advance - after:",
-          room.currentTurn,
-          "next player:",
-          room.players[room.currentTurn].name
-        );
+        room.currentTurn = (room.currentTurn + 1) % room.players.length;
         const nextPlayer = room.players[room.currentTurn];
 
         await bot.sendMessage(
