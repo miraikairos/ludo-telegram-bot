@@ -14,7 +14,10 @@ function createLobby(chatId, creatorId, creatorName, creatorUsername) {
 
     lobbyMessageId: null,
     boardMessageId: null,
-   
+    activeMessageId: null,
+    positions: {},
+finishedPlayers: [],
+gameType: null,
     currentTurn: 0,
     lastDice: 0,
      pendingMove: null,

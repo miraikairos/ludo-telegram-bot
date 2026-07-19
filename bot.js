@@ -428,7 +428,7 @@ room.players.forEach((p, i) => {
   legend += `${colors[i]} ${p.name}\n`;
 });
 
-await safeSendPhoto(
+const sent = await safeSendPhoto(
   msg.chat.id,
   image,
   {
@@ -444,6 +444,10 @@ await safeSendPhoto(
     },
   }
 );
+
+if (sent) {
+  room.activeMessageId = sent.message_id;
+}
 });
 function buildSnlLobby(room) {
   let text = "🐍 Snakes & Ladders Lobby\n\n";
@@ -584,6 +588,7 @@ const playerList = room.players
 console.log("Board sent");
 
   room.boardMessageId = sent?.message_id;
+  room.activeMessageId = sent?.message_id;
 });
 bot.onText(/\/resume/, async (msg) => {
   const room = getRoom(msg.chat.id);
@@ -600,7 +605,16 @@ bot.onText(/\/resume/, async (msg) => {
   const currentPlayer =
     room.players[room.currentTurn];
 
-  await bot.sendMessage(
+  if (room.activeMessageId) {
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      { chat_id: msg.chat.id, message_id: room.activeMessageId }
+    ).catch(() => {});
+  }
+
+  const callbackData = room.gameType === "snl" ? "SNL_ROLL" : "ROLL";
+
+  const sent = await bot.sendMessage(
     msg.chat.id,
     `🔄 Game resumed\n\n➡️ Turn: ${mention(currentPlayer)}`,
     {
@@ -608,12 +622,14 @@ bot.onText(/\/resume/, async (msg) => {
         inline_keyboard: [[
           {
             text: "🎲 Roll Dice",
-            callback_data: "ROLL"
+            callback_data: callbackData
           }
         ]]
       }
     }
   );
+
+  room.activeMessageId = sent?.message_id;
 });
 bot.onText(/\/test55/, async (msg) => {
   const room = getRoom(msg.chat.id);
@@ -644,27 +660,27 @@ bot.onText(/\/skip/, async (msg) => {
     );
   }
 
-  room.currentTurn =
-    (room.currentTurn + 1) %
-    room.players.length;
-  console.log(
-  "Current Turn:",
-  room.currentTurn
-);
+  // Clear previous keyboard
+  if (room.activeMessageId) {
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      { chat_id: msg.chat.id, message_id: room.activeMessageId }
+    ).catch(() => {});
+  }
 
-console.log(
-  "Players Length:",
-  room.players.length
-);
+  // Advance turn (skipping finished players for SNL)
+  if (room.gameType === "snl") {
+    do {
+      room.currentTurn = (room.currentTurn + 1) % room.players.length;
+    } while (room.finishedPlayers.includes(room.players[room.currentTurn].id));
+  } else {
+    room.currentTurn = (room.currentTurn + 1) % room.players.length;
+  }
 
-console.log(
-  "Next Player:",
-  room.players[room.currentTurn]
-);
-  const nextPlayer =
-    room.players[room.currentTurn];
+  const nextPlayer = room.players[room.currentTurn];
+  const callbackData = room.gameType === "snl" ? "SNL_ROLL" : "ROLL";
 
-  await bot.sendMessage(
+  const sent = await bot.sendMessage(
     msg.chat.id,
     `⏭️ ${mention(currentPlayer)} skipped the turn.\n\n➡️ Turn: ${mention(nextPlayer)}`,
     {
@@ -673,7 +689,7 @@ console.log(
           [
             {
               text: "🎲 Roll Dice",
-              callback_data: "ROLL",
+              callback_data: callbackData,
             },
           ],
         ],
@@ -744,6 +760,13 @@ if (query.data === "SNL_ROLL") {
   try {
     const currentPlayer = room.players[room.currentTurn];
 
+    if (room.activeMessageId && query.message.message_id !== room.activeMessageId) {
+      return bot.answerCallbackQuery(query.id, {
+        text: "This button is no longer active.",
+        show_alert: true,
+      });
+    }
+
     if (query.from.id !== currentPlayer.id) {
       return bot.answerCallbackQuery(query.id, {
         text: "Not your turn!",
@@ -758,6 +781,14 @@ if (query.data === "SNL_ROLL") {
       });
     }
     room.processing = true;
+
+    // Clear old keyboard immediately
+    if (room.activeMessageId) {
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [] },
+        { chat_id: query.message.chat.id, message_id: room.activeMessageId }
+      ).catch(() => {});
+    }
 
     await bot.answerCallbackQuery(query.id);
 
@@ -809,14 +840,17 @@ if (query.data === "SNL_ROLL") {
             `🏆 ${currentPlayer.name} finished #${room.finishedPlayers.length}`
           );
         }
-       do {
-  room.currentTurn =
-    (room.currentTurn + 1) % room.players.length;
-} while (
-  room.finishedPlayers.includes(
-    room.players[room.currentTurn].id
-  )
-);
+
+        // Advance turn once
+        do {
+          room.currentTurn =
+            (room.currentTurn + 1) % room.players.length;
+        } while (
+          room.finishedPlayers.includes(
+            room.players[room.currentTurn].id
+          )
+        );
+
         // ✅ Telegram's dice sticker animates for ~4s on the player's
         // screen. Only wait out whatever time is LEFT of that window —
         // if the render/network above was already slow, don't add more
@@ -853,10 +887,9 @@ if (query.data === "SNL_ROLL") {
         }
 
         // Next turn
-        room.currentTurn = (room.currentTurn + 1) % room.players.length;
         const nextPlayer = room.players[room.currentTurn];
 
-        await bot.sendMessage(
+        const sent = await bot.sendMessage(
           query.message.chat.id,
           `➡️ Turn: ${nextPlayer.name}`,
           {
@@ -868,6 +901,7 @@ if (query.data === "SNL_ROLL") {
           }
         );
 
+        room.activeMessageId = sent?.message_id;
         room.processing = false; // ✅ Unlock
 
       } catch (err) {
@@ -891,6 +925,16 @@ if (query.data === "SNL_ROLL") {
     const currentPlayer =
       room.players[room.currentTurn];
 
+    if (room.activeMessageId && query.message.message_id !== room.activeMessageId) {
+      return bot.answerCallbackQuery(
+        query.id,
+        {
+          text: "This button is no longer active.",
+          show_alert: true,
+        }
+      );
+    }
+
     if (query.from.id !== currentPlayer.id) {
       return bot.answerCallbackQuery(
         query.id,
@@ -901,12 +945,6 @@ if (query.data === "SNL_ROLL") {
       );
     }
 
-    // Acquire the lock RIGHT HERE, synchronously, before any
-    // await. This is what actually stops a fast double-click:
-    // if two ROLL clicks arrive close together, whichever one's
-    // handler runs first sets this flag before yielding control,
-    // so the second one sees it immediately and bails out instead
-    // of also sending a dice roll.
     if (room.processing) {
       return bot.answerCallbackQuery(
         query.id,
@@ -917,235 +955,189 @@ if (query.data === "SNL_ROLL") {
     }
     room.processing = true;
 
+    // Clear old keyboard immediately
+    if (room.activeMessageId) {
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [] },
+        { chat_id: query.message.chat.id, message_id: room.activeMessageId }
+      ).catch(() => {});
+    }
+
  let diceMsg;
 
-try {
-  console.log("Before sendDice");
+ try {
+   console.log("Before sendDice");
 
-const dicePromise = bot.sendDice(
-  query.message.chat.id
-);
+ const dicePromise = bot.sendDice(
+   query.message.chat.id
+ );
 
-const timeoutPromise = new Promise((_, reject) =>
-  setTimeout(
-    () => reject(new Error("sendDice timeout")),
-    10000
-  )
-);
+ const timeoutPromise = new Promise((_, reject) =>
+   setTimeout(
+     () => reject(new Error("sendDice timeout")),
+     10000
+   )
+ );
 
-diceMsg = await Promise.race([
-  dicePromise,
-  timeoutPromise
-]);
+ diceMsg = await Promise.race([
+   dicePromise,
+   timeoutPromise
+ ]);
 
-console.log("After sendDice");
-} catch (err) {
-  console.error("SEND DICE FAILED:", err);
-  room.processing = false;
-  await bot.sendMessage(
-    query.message.chat.id,
-    "⚠️ That roll didn't go through (network hiccup). Please tap 🎲 Roll Dice again."
-  ).catch(() => {});
-  return;
-}
+ console.log("After sendDice");
+ } catch (err) {
+   console.error("SEND DICE FAILED:", err);
+   room.processing = false;
+   await bot.sendMessage(
+     query.message.chat.id,
+     "⚠️ That roll didn't go through (network hiccup). Please tap 🎲 Roll Dice again."
+   ).catch(() => {});
+   return;
+ }
 
     const dice = diceMsg.dice.value;
-
     room.lastDice = dice;
- const color = currentPlayer.color;
-
-const movablePieces =
-  room.pieces[color]
-    .map((pos, index) => ({ pos, index }))
-    .filter((p) => {
-      if (p.pos === -1) {
-        return dice === 6 || dice === 1;
-      }
-     if(p.pos === 56){
-      return false;
-     }
-      return p.pos + dice <= 56;
-    });
+    const color = currentPlayer.color;
 
     await bot.answerCallbackQuery(
       query.id
     );
- console.log("After answerCallbackQuery");
+    console.log("After answerCallbackQuery");
 
-// Emergency unlock after 15 sec
-setTimeout(() => {
-  room.processing = false;
-  console.log("Processing auto-reset");
-}, 15000);
- setTimeout(async () => {
-  try {
-    console.log("Processing roll");
+    // Tag this roll so stale timers below know if a newer roll has
+    // since started (e.g. this player rolling again quickly after a 6).
+    room.rollGen = (room.rollGen || 0) + 1;
+    const myRollGen = room.rollGen;
 
-    const color = currentPlayer.color;
+    // Emergency unlock after 15 sec — only if no newer roll has started.
+    setTimeout(() => {
+      if (room.rollGen === myRollGen) {
+        room.processing = false;
+        console.log("Processing auto-reset");
+      }
+    }, 15000);
 
-    const movablePieces =
-      room.pieces[color]
-        .map((pos, index) => ({
-          pos,
-          index,
-        }))
-        .filter(
-          (p) =>
-            p.pos !== -1 ||
-            dice === 6 ||
-            dice === 1
+    setTimeout(async () => {
+      try {
+        console.log("Processing roll");
+
+        // Delete the roll message
+        await bot.deleteMessage(
+          query.message.chat.id,
+          query.message.message_id
+        ).catch(() => {});
+
+        const movablePieces = room.pieces[color]
+          .map((pos, index) => ({ pos, index }))
+          .filter((p) => {
+            if (p.pos === -1) {
+              return dice === 6 || dice === 1;
+            }
+            if (p.pos === 56) {
+              return false;
+            }
+            return p.pos + dice <= 56;
+          });
+
+        console.log(
+          "Movable:",
+          movablePieces.length
         );
 
-    console.log(
-      "Movable:",
-      movablePieces.length
-    );
-console.log(
-  "Dice:",
-  dice,
-  "Movable:",
-  movablePieces
-);
-if (
-  room.pieces[color].some(
-    (pos) =>
-      pos > 50 &&
-      pos < 56 &&
-      pos + dice > 56
-  ) &&
-  movablePieces.length === 0
-) {
-  room.currentTurn =
-    (room.currentTurn + 1) %
-    room.players.length;
-  
-console.log(
-  "Next turn:",
-  room.players[room.currentTurn].name
-);
-  const nextPlayer =
-    room.players[room.currentTurn];
+        if (movablePieces.length === 0) {
+          await bot.sendMessage(
+            query.message.chat.id,
+            `🎲 ${currentPlayer.name} rolled ${dice}\n\nNo possible moves.`
+          );
 
-  await bot.sendMessage(
-    query.message.chat.id,
-    `➡️ Turn: ${mention(nextPlayer)}`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "🎲 Roll Dice",
-              callback_data: "ROLL",
-            },
-          ],
-        ],
-      },
-    }
-  );
+          room.currentTurn =
+            (room.currentTurn + 1) %
+            room.players.length;
 
-  return;
-}
- if (movablePieces.length === 0) {
-  await bot.sendMessage(
-    query.message.chat.id,
-    `🎲 ${currentPlayer.name} rolled ${dice}\n\nNo possible moves.`
-  );
+          const nextPlayer =
+            room.players[room.currentTurn];
 
-  room.currentTurn =
-    (room.currentTurn + 1) %
-    room.players.length;
+          const sent = await bot.sendMessage(
+            query.message.chat.id,
+            `➡️ Turn: ${mention(nextPlayer)}`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "🎲 Roll Dice",
+                      callback_data: "ROLL",
+                    },
+                  ],
+                ],
+              },
+            }
+          );
 
-  const nextPlayer =
-    room.players[room.currentTurn];
+          room.activeMessageId = sent?.message_id;
+          return;
+        }
 
-  await bot.sendMessage(
-    query.message.chat.id,
-    `➡️ Turn: ${mention(nextPlayer)}`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "🎲 Roll Dice",
-              callback_data: "ROLL",
-            },
-          ],
-        ],
-      },
-    }
-  );
+        console.log("Before move selection message");
+        const keyboardRows = [];
+        let row = [];
+        movablePieces.forEach((p, idx) => {
+          row.push({
+            text: `P${p.index + 1}`,
+            callback_data: `MOVE_${p.index}`,
+          });
+          if (row.length === 2 || idx === movablePieces.length - 1) {
+            keyboardRows.push(row);
+            row = [];
+          }
+        });
 
-  return;
-}
- console.log("Before move selection message");
- await bot.deleteMessage(
-  query.message.chat.id,
-  query.message.message_id
-).catch(() => {});
-  await bot.sendMessage(
-    query.message.chat.id,
-    `🎲 ${currentPlayer.name} rolled ${dice}`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "P1",
-              callback_data: "MOVE_0",
+        const sent = await bot.sendMessage(
+          query.message.chat.id,
+          `🎲 ${currentPlayer.name} rolled ${dice}. Choose a piece to move:`,
+          {
+            reply_markup: {
+              inline_keyboard: keyboardRows,
             },
-            {
-              text: "P2",
-              callback_data: "MOVE_1",
-            },
-          ],
-          [
-            {
-              text: "P3",
-              callback_data: "MOVE_2",
-            },
-            {
-              text: "P4",
-              callback_data: "MOVE_3",
-            },
-          ],
-        ],
-      },
-    }
-  );
- 
-console.log("After move selection message");
-  } catch (err) {
-    console.error(
-      "ROLL TIMEOUT ERROR:",
-      err
-    );
-    await bot.sendMessage(
-      query.message.chat.id,
-      "⚠️ Something went wrong processing that roll. Please tap 🎲 Roll Dice again."
-    ).catch(() => {});
-  } finally {
-    room.processing = false;
+          }
+        );
+
+        room.activeMessageId = sent?.message_id;
+        console.log("After move selection message");
+      } catch (err) {
+        console.error(
+          "ROLL TIMEOUT ERROR:",
+          err
+        );
+        await bot.sendMessage(
+          query.message.chat.id,
+          "⚠️ Something went wrong processing that roll. Please tap 🎲 Roll Dice again."
+        ).catch(() => {});
+      } finally {
+        if (room.rollGen === myRollGen) {
+          room.processing = false;
+        }
+      }
+    }, 4000);
+
+    return;
   }
-}, 4000);
 
-
-return;
-}
-
-  // =====================
-  // SELECT PIECE
-  // =====================
- 
-
- 
- // =====================
-// MOVE PIECE
-// =====================
-if (query.data.startsWith("MOVE_")) {
+  if (query.data.startsWith("MOVE_")) {
 try {
 
   const currentPlayer =
     room.players[room.currentTurn];
+
+  if (room.activeMessageId && query.message.message_id !== room.activeMessageId) {
+    return bot.answerCallbackQuery(
+      query.id,
+      {
+        text: "This button is no longer active.",
+        show_alert: true,
+      }
+    );
+  }
 
   if (query.from.id !== currentPlayer.id) {
     return bot.answerCallbackQuery(
@@ -1155,6 +1147,30 @@ try {
         show_alert: true,
       }
     );
+  }
+
+  // Prevent a fast double-tap (or resent callback) from running this
+  // handler twice before currentTurn/activeMessageId have changed.
+  if (room.processingMove) {
+    return bot.answerCallbackQuery(
+      query.id,
+      {
+        text: "⏳ Already processing your move...",
+      }
+    );
+  }
+  room.processingMove = true;
+
+  // Answer right away so Telegram stops showing the button as "loading",
+  // which is what tempts a re-tap in the first place.
+  await bot.answerCallbackQuery(query.id).catch(() => {});
+
+  // Clear keyboard of the active message immediately
+  if (room.activeMessageId) {
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      { chat_id: query.message.chat.id, message_id: room.activeMessageId }
+    ).catch(() => {});
   }
 
   const piece = parseInt(
@@ -1169,21 +1185,15 @@ try {
 
   if (currentPos === -1) {
     if (room.lastDice !== 6 && room.lastDice !== 1) {
-      return bot.answerCallbackQuery(
-        query.id,
-        {
-          text: "Need a 6 or 1 to leave home",
-          show_alert: true,
-        }
+      return bot.sendMessage(
+        query.message.chat.id,
+        "⚠️ Need a 6 or 1 to leave home. Pick a different piece."
       );
     }
   } else if (currentPos + room.lastDice > 56) {
-    return bot.answerCallbackQuery(
-      query.id,
-      {
-        text: "Need exact roll",
-        show_alert: true,
-      }
+    return bot.sendMessage(
+      query.message.chat.id,
+      "⚠️ Need the exact roll to finish. Pick a different piece."
     );
   }
 
@@ -1235,62 +1245,59 @@ try {
   
   // capture logic
 
- // Pieces in home lane cannot capture
-if (movedPos < 51) {
+  // Pieces in home lane cannot capture
+  if (movedPos < 51) {
 
-  const movedBoardIndex =
-    (START_INDEX[color] + movedPos) %
-    PATH_LENGTH;
+    const movedBoardIndex =
+      (START_INDEX[color] + movedPos) %
+      PATH_LENGTH;
 
-  // Safe square (start square or star square) - no captures happen here
-  if (SAFE_INDICES.has(movedBoardIndex)) {
-    // skip capture check entirely
-  } else {
+    // Safe square (start square or star square) - no captures happen here
+    if (SAFE_INDICES.has(movedBoardIndex)) {
+      // skip capture check entirely
+    } else {
 
-  for (const player of room.players) {
+      for (const player of room.players) {
 
-    if (player.color === color)
-      continue;
+        if (player.color === color)
+          continue;
 
-    for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 4; i++) {
 
-      const oppPos =
-        room.pieces[player.color][i];
+          const oppPos =
+            room.pieces[player.color][i];
 
-      // Ignore home and home-lane pieces
-      if (
-        oppPos === -1 ||
-        oppPos >= 51
-      ) continue;
+          // Ignore home and home-lane pieces
+          if (
+            oppPos === -1 ||
+            oppPos >= 51
+          ) continue;
 
-      const oppBoardIndex =
-        (
-          START_INDEX[player.color] +
-          oppPos
-        ) % PATH_LENGTH;
+          const oppBoardIndex =
+            (
+              START_INDEX[player.color] +
+              oppPos
+            ) % PATH_LENGTH;
 
-      if (
-        oppBoardIndex ===
-        movedBoardIndex
-      ) {
+          if (
+            oppBoardIndex ===
+            movedBoardIndex
+          ) {
 
-        room.pieces[player.color][i] =
-          -1;
+            room.pieces[player.color][i] =
+              -1;
 
-        captured = true;
+            captured = true;
 
-        await safeSendMessage(
-          query.message.chat.id,
-          `✂️ ${color.toUpperCase()} captured ${player.color.toUpperCase()}'s P${i + 1}!`
-        );
+            await safeSendMessage(
+              query.message.chat.id,
+              `✂️ ${color.toUpperCase()} captured ${player.color.toUpperCase()}'s P${i + 1}!`
+            );
+          }
+        }
       }
     }
   }
-  }
-}
-
-
- 
 
   const image =
     await renderBoard(room);
@@ -1302,11 +1309,6 @@ if (movedPos < 51) {
       caption: "🎲 Updated Board",
     }
   );
-await bot.answerCallbackQuery(
-  query.id
-);
-
-  
 
   if (
     !captured &&
@@ -1320,7 +1322,7 @@ await bot.answerCallbackQuery(
   const nextPlayer =
     room.players[room.currentTurn];
 
-  await safeSendMessage(
+  const sent = await safeSendMessage(
     query.message.chat.id,
     `➡️ Turn: ${mention(nextPlayer)}`,
     {
@@ -1337,25 +1339,26 @@ await bot.answerCallbackQuery(
     }
   );
 
-   return;
+  room.activeMessageId = sent?.message_id;
+  return;
 
   } catch (err) {
-
     console.error(
       "MOVE HANDLER ERROR:",
       err
     );
-
     await bot.sendMessage(
       query.message.chat.id,
       `❌ MOVE ERROR: ${err.message}\n\n⚠️ Please try tapping your piece again.`
     ).catch(() => {});
+  } finally {
+    room.processingMove = false;
   }
 }
-});  
+});
+
 setInterval(() => {
   const mem = process.memoryUsage();
-
   console.log(
     "RAM:",
     Math.round(mem.heapUsed / 1024 / 1024),
