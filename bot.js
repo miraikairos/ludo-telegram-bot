@@ -988,10 +988,23 @@ if (query.data === "SNL_ROLL") {
  } catch (err) {
    console.error("SEND DICE FAILED:", err);
    room.processing = false;
-   await bot.sendMessage(
+   const errSent = await bot.sendMessage(
      query.message.chat.id,
-     "⚠️ That roll didn't go through (network hiccup). Please tap 🎲 Roll Dice again."
+     "⚠️ That roll didn't go through (network hiccup). Please tap 🎲 Roll Dice again.",
+     {
+       reply_markup: {
+         inline_keyboard: [
+           [
+             {
+               text: "🎲 Roll Dice",
+               callback_data: "ROLL",
+             },
+           ],
+         ],
+       },
+     }
    ).catch(() => {});
+   room.activeMessageId = errSent?.message_id;
    return;
  }
 
@@ -1109,10 +1122,23 @@ if (query.data === "SNL_ROLL") {
           "ROLL TIMEOUT ERROR:",
           err
         );
-        await bot.sendMessage(
+        const errSent = await bot.sendMessage(
           query.message.chat.id,
-          "⚠️ Something went wrong processing that roll. Please tap 🎲 Roll Dice again."
+          "⚠️ Something went wrong processing that roll. Please tap 🎲 Roll Dice again.",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "🎲 Roll Dice",
+                    callback_data: "ROLL",
+                  },
+                ],
+              ],
+            },
+          }
         ).catch(() => {});
+        room.activeMessageId = errSent?.message_id;
       } finally {
         if (room.rollGen === myRollGen) {
           room.processing = false;
@@ -1347,10 +1373,23 @@ try {
       "MOVE HANDLER ERROR:",
       err
     );
-    await bot.sendMessage(
+    const errSent = await bot.sendMessage(
       query.message.chat.id,
-      `❌ MOVE ERROR: ${err.message}\n\n⚠️ Please try tapping your piece again.`
+      `❌ MOVE ERROR: ${err.message}\n\n⚠️ Something went wrong. Tap 🎲 Roll Dice to continue.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "🎲 Roll Dice",
+                callback_data: "ROLL",
+              },
+            ],
+          ],
+        },
+      }
     ).catch(() => {});
+    room.activeMessageId = errSent?.message_id;
   } finally {
     room.processingMove = false;
   }
