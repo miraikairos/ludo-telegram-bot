@@ -1418,12 +1418,24 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
-    try {
-    await bot.setWebHook(
-      `https://ludo-telegram-bot-1.onrender.com/bot8784131458:AAH1anMO-VIOgjeWcEP55TyqPSgrfQbifQU`
-    );
+  // RENDER_EXTERNAL_URL is set automatically by Render to the service's
+  // current live URL, so this stays correct even if the service is renamed
+  // or moved to a different Render account/project in the future.
+  // WEBHOOK_URL can be set manually as a fallback/override if needed.
+  const baseUrl =
+    process.env.WEBHOOK_URL || process.env.RENDER_EXTERNAL_URL;
 
-    console.log("Webhook set");
+  if (!baseUrl) {
+    console.error(
+      "WEBHOOK ERROR: No RENDER_EXTERNAL_URL or WEBHOOK_URL env var found — cannot set webhook."
+    );
+    return;
+  }
+
+  try {
+    await bot.setWebHook(`${baseUrl}/bot${TOKEN}`);
+
+    console.log("Webhook set to:", `${baseUrl}/bot${TOKEN}`);
   } catch (err) {
     console.error(
       "WEBHOOK ERROR:",
